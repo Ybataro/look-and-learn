@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Look & Learn - AR English</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; touch-action: none; }
+
+    #camera { width: 100vw; height: 100vh; object-fit: cover; }
+    #overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      pointer-events: none; z-index: 10;
+    }
+
+    #capture-canvas { display: none; }
+
+    /* Loading screen */
+    #loading {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white; transition: opacity 0.5s;
+    }
+    #loading.hidden { opacity: 0; pointer-events: none; }
+
+    .pulse-ring {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.2);
+      border-top-color: #e94560;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Tap ripple effect */
+    .tap-ripple {
+      position: absolute; pointer-events: none;
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.8);
+      transform: translate(-50%, -50%);
+      animation: ripple 1s ease-out forwards;
+      z-index: 15;
+    }
+    @keyframes ripple {
+      0% { width: 20px; height: 20px; opacity: 1; }
+      100% { width: 80px; height: 80px; opacity: 0; }
+    }
+
+    /* Label tag */
+    .label-tag {
+      position: absolute; pointer-events: auto; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center;
+      transform: translate(-50%, -100%);
+      z-index: 20;
+      animation: fadeInUp 0.3s ease-out;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translate(-50%, -80%); }
+      to { opacity: 1; transform: translate(-50%, -100%); }
+    }
+
+    .label-en {
+      background: rgba(233, 69, 96, 0.92);
+      color: white; font-weight: 700; font-size: 18px;
+      padding: 8px 18px; border-radius: 14px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 15px rgba(233,69,96,0.4);
+      text-transform: capitalize;
+      white-space: nowrap;
+      pointer-events: auto;
+    }
+    .label-en:active { transform: scale(0.95); }
+
+    .label-zh {
+      background: rgba(0,0,0,0.7);
+      color: #f0f0f0; font-size: 13px; font-weight: 500;
+      padding: 4px 12px; border-radius: 8px;
+      margin-top: 4px; white-space: nowrap;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+
+    .label-arrow {
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 6px solid rgba(0,0,0,0.7);
+    }
+
+    /* Speaking animation */
+    .speaking { animation: pulse 0.3s ease-in-out 3; }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); box-shadow: 0 4px 20px rgba(233,69,96,0.6); }
+    }
+
+    /* Detection box */
+    .detect-box {
+      position: absolute; pointer-events: none;
+      border: 2.5px solid rgba(233, 69, 96, 0.7);
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(233,69,96,0.3);
+      animation: boxAppear 0.3s ease-out;
+    }
+    @keyframes boxAppear {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Fade out */
+    .label-tag.leaving, .detect-box.leaving {
+      opacity: 0;
+      transition: opacity 0.3s ease-out;
+    }
+
+    /* Top status bar */
+    #status-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+      padding: 12px 16px; padding-top: max(env(safe-area-inset-top), 12px);
+      display: flex; justify-content: center; align-items: center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
+    }
+
+    #status-text {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      color: white; font-size: 13px; font-weight: 600;
+      padding: 6px 14px; border-radius: 20px;
+    }
+
+    /* Loading spinner for detecting */
+    .detecting-spinner {
+      display: inline-block;
+      width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px; vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading">
+    <div class="pulse-ring mb-6"></div>
+    <h1 class="text-2xl font-bold mb-2">Look & Learn</h1>
+    <p class="text-white/60 text-sm mb-4">AR English Learning</p>
+    <p id="loading-text" class="text-white/80 text-sm">Starting camera...</p>
+  </div>
+
+  <!-- Camera -->
+  <video id="camera" autoplay playsinline muted></video>
+
+  <!-- Hidden canvas -->
+  <canvas id="capture-canvas"></canvas>
+
+  <!-- Label overlay -->
+  <div id="overlay"></div>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <div id="status-text">Tap any object to learn its name</div>
+  </div>
+
+  <script>
+    // ============================================================
+    // Configuration
+    // ============================================================
+    const API_KEY = 'AIzaSyD1KoruCHvP9d_DWtZ31CgIZIDrAQ-1aOc'
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}`
+
+    // ============================================================
+    // State
+    // ============================================================
+    let detecting = false
+    const video = document.getElementById('camera')
+    const overlay = document.getElementById('overlay')
+    const statusEl = document.getElementById('status-text')
+    const loadingEl = document.getElementById('loading')
+    const loadingText = document.getElementById('loading-text')
+    const captureCanvas = document.getElementById('capture-canvas')
+    const captureCtx = captureCanvas.getContext('2d')
+
+    // Current displayed result
+    let currentBox = null
+    let currentTag = null
+
+    // ============================================================
+    // Speech (TTS)
+    // ============================================================
+    function speak(text) {
+      if (speechSynthesis.speaking) speechSynthesis.cancel()
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = 'en-US'
+      utterance.rate = 0.85
+      utterance.pitch = 1
+      speechSynthesis.speak(utterance)
+    }
+
+    // ============================================================
+    // Camera
+    // ============================================================
+    async function startCamera() {
+      loadingText.textContent = 'Requesting camera access...'
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      })
+      video.srcObject = stream
+      await video.play()
+    }
+
+    // ============================================================
+    // Screen coords ↔ Video coords (object-fit: cover)
+    // ============================================================
+    function screenToVideo(sx, sy) {
+      const vw = video.videoWidth, vh = video.videoHeight
+      const sw = window.innerWidth, sh = window.innerHeight
+      const videoRatio = vw / vh, screenRatio = sw / sh
+
+      let scale, offsetX = 0, offsetY = 0
+      if (screenRatio > videoRatio) {
+        scale = sw / vw
+        offsetY = (sh - vh * scale) / 2
+      } else {
+        scale = sh / vh
+        offsetX = (sw - vw * scale) / 2
+      }
+
+      return {
+        vx: (sx - offsetX) / scale,
+        vy: (sy - offsetY) / scale
+      }
+    }
+
+    function geminiToScreen(box_2d) {
+      const [yMin, xMin, yMax, xMax] = box_2d
+      const vw = video.videoWidth, vh = video.videoHeight
+      const sw = window.innerWidth, sh = window.innerHeight
+
+      const vx1 = (xMin / 1000) * vw, vy1 = (yMin / 1000) * vh
+      const vx2 = (xMax / 1000) * vw, vy2 = (yMax / 1000) * vh
+
+      const videoRatio = vw / vh, screenRatio = sw / sh
+      let scale, offsetX = 0, offsetY = 0
+      if (screenRatio > videoRatio) {
+        scale = sw / vw
+        offsetY = (sh - vh * scale) / 2
+      } else {
+        scale = sh / vh
+        offsetX = (sw - vw * scale) / 2
+      }
+
+      return {
+        left: vx1 * scale + offsetX,
+        top: vy1 * scale + offsetY,
+        width: (vx2 - vx1) * scale,
+        height: (vy2 - vy1) * scale,
+      }
+    }
+
+    // ============================================================
+    // Clear current result
+    // ============================================================
+    function clearResult() {
+      if (currentBox) {
+        currentBox.classList.add('leaving')
+        currentTag.classList.add('leaving')
+        const b = currentBox, t = currentTag
+        setTimeout(() => { b.remove(); t.remove() }, 300)
+        currentBox = null
+        currentTag = null
+      }
+    }
+
+    // ============================================================
+    // Show result
+    // ============================================================
+    function showResult(det) {
+      clearResult()
+
+      const coords = geminiToScreen(det.box_2d)
+      const en = det.label
+      const zh = det.label_zh || ''
+
+      // Box
+      const box = document.createElement('div')
+      box.className = 'detect-box'
+      box.style.cssText = `left:${coords.left}px;top:${coords.top}px;width:${coords.width}px;height:${coords.height}px;`
+      overlay.appendChild(box)
+
+      // Tag — positioned at top center of box
+      const tag = document.createElement('div')
+      tag.className = 'label-tag'
+      tag.style.cssText = `left:${coords.left + coords.width / 2}px;top:${coords.top}px;`
+
+      const enEl = document.createElement('div')
+      enEl.className = 'label-en'
+      enEl.textContent = en
+      enEl.addEventListener('click', (e) => {
+        e.stopPropagation()
+        enEl.classList.add('speaking')
+        speak(en)
+        setTimeout(() => enEl.classList.remove('speaking'), 1000)
+      })
+
+      const zhEl = document.createElement('div')
+      zhEl.className = 'label-zh'
+      zhEl.textContent = zh
+
+      const arrow = document.createElement('div')
+      arrow.className = 'label-arrow'
+
+      tag.appendChild(enEl)
+      tag.appendChild(zhEl)
+      tag.appendChild(arrow)
+      overlay.appendChild(tag)
+
+      currentBox = box
+      currentTag = tag
+
+      // Auto-speak on detection
+      speak(en)
+
+      statusEl.innerHTML = `<b>${en}</b> — tap to hear again, or tap another object`
+    }
+
+    // ============================================================
+    // Detect object at tap point
+    // ============================================================
+    async function detectAt(screenX, screenY) {
+      if (detecting) return
+      detecting = true
+
+      clearResult()
+
+      // Show ripple
+      const ripple = document.createElement('div')
+      ripple.className = 'tap-ripple'
+      ripple.style.left = screenX + 'px'
+      ripple.style.top = screenY + 'px'
+      overlay.appendChild(ripple)
+      setTimeout(() => ripple.remove(), 1000)
+
+      statusEl.innerHTML = '<span class="detecting-spinner"></span>Identifying...'
+
+      const vw = video.videoWidth, vh = video.videoHeight
+      if (!vw || !vh) { detecting = false; return }
+
+      // Convert tap to normalized coords (0-1000)
+      const { vx, vy } = screenToVideo(screenX, screenY)
+      const normX = Math.round((vx / vw) * 1000)
+      const normY = Math.round((vy / vh) * 1000)
+
+      // Capture frame
+      const scale = Math.min(640 / vw, 640 / vh, 1)
+      const cw = Math.round(vw * scale), ch = Math.round(vh * scale)
+      captureCanvas.width = cw
+      captureCanvas.height = ch
+      captureCtx.drawImage(video, 0, 0, vw, vh, 0, 0, cw, ch)
+      const base64 = captureCanvas.toDataURL('image/jpeg', 0.7).split(',')[1]
+
+      const prompt = `What is the object at point (${normX}, ${normY}) in this image? Coordinates are normalized 0-1000 where (0,0) is top-left.
+Return ONLY a JSON object (no markdown): {"label":"English name","label_zh":"繁體中文名稱","box_2d":[y_min,x_min,y_max,x_max]}
+box_2d coordinates are also 0-1000 normalized. Be specific (e.g. "Mechanical keyboard" not just "Object").`
+
+      try {
+        const resp = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { mime_type: 'image/jpeg', data: base64 } },
+                { text: prompt }
+              ]
+            }],
+            generationConfig: { temperature: 0, maxOutputTokens: 150 }
+          })
+        })
+
+        if (!resp.ok) {
+          const errBody = await resp.text().catch(() => '')
+          let msg = `API error ${resp.status}`
+          try { msg = JSON.parse(errBody).error?.message?.slice(0, 60) || msg } catch {}
+          statusEl.textContent = msg
+          detecting = false
+          return
+        }
+
+        const data = await resp.json()
+        const parts = data.candidates?.[0]?.content?.parts
+        if (!parts) {
+          statusEl.textContent = 'No response — try again'
+          detecting = false
+          return
+        }
+
+        // Find last text part
+        let text = ''
+        for (let i = parts.length - 1; i >= 0; i--) {
+          if (parts[i].text) { text = parts[i].text.trim(); break }
+        }
+
+        // Strip markdown fences
+        if (text.includes('```')) {
+          text = text.replace(/^[\s\S]*?```(?:json)?\s*/, '').replace(/\s*```[\s\S]*$/, '')
+        }
+
+        // Extract JSON object
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) {
+          statusEl.textContent = 'Could not identify — try again'
+          detecting = false
+          return
+        }
+
+        const det = JSON.parse(jsonMatch[0])
+        if (det.label && det.box_2d?.length === 4) {
+          showResult(det)
+        } else {
+          statusEl.textContent = 'Could not identify — try again'
+        }
+      } catch (e) {
+        console.error('Detection error:', e)
+        statusEl.textContent = 'Error — try again'
+      }
+
+      detecting = false
+    }
+
+    // ============================================================
+    // Tap handler
+    // ============================================================
+    document.addEventListener('click', (e) => {
+      // Tap on label → speak again (handled by label's own click)
+      if (e.target.closest('.label-en')) return
+      // Tap on box/tag area → close current result, don't detect new
+      if (e.target.closest('.label-tag') || e.target.closest('.detect-box')) {
+        clearResult()
+        statusEl.textContent = 'Tap any object to learn its name'
+        return
+      }
+      // If there's a current result showing, close it first and detect new
+      if (currentBox) clearResult()
+      detectAt(e.clientX, e.clientY)
+    })
+
+    // ============================================================
+    // Init
+    // ============================================================
+    async function init() {
+      try {
+        await startCamera()
+        loadingEl.classList.add('hidden')
+        setTimeout(() => loadingEl.style.display = 'none', 500)
+        statusEl.textContent = 'Tap any object to learn its name'
+      } catch (err) {
+        console.error('Init error:', err)
+        loadingText.textContent = 'Error: ' + err.message
+      }
+    }
+
+    init()
+  </script>
+</body>
+</html>
