@@ -115,6 +115,87 @@
       transition: opacity 0.3s ease-out;
     }
 
+    /* In-app browser warning overlay */
+    #inapp-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: white; padding: 32px 24px; text-align: center;
+    }
+    #inapp-overlay .icon-circle {
+      width: 80px; height: 80px; border-radius: 50%;
+      background: rgba(233, 69, 96, 0.15); border: 2px solid rgba(233, 69, 96, 0.4);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 24px; font-size: 36px;
+    }
+    #inapp-overlay h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    #inapp-overlay .sub { color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 28px; line-height: 1.6; }
+    #inapp-overlay .steps {
+      background: rgba(255,255,255,0.08); border-radius: 16px;
+      padding: 20px 24px; width: 100%; max-width: 340px;
+      text-align: left; margin-bottom: 24px;
+    }
+    #inapp-overlay .step {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 14px; font-size: 14px; line-height: 1.5;
+    }
+    #inapp-overlay .step:last-child { margin-bottom: 0; }
+    #inapp-overlay .step-num {
+      flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
+      background: #e94560; color: white; font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #inapp-overlay .btn-open {
+      background: #e94560; color: white; border: none; border-radius: 12px;
+      padding: 14px 32px; font-size: 16px; font-weight: 700;
+      cursor: pointer; width: 100%; max-width: 340px;
+      margin-bottom: 12px;
+    }
+    #inapp-overlay .btn-open:active { opacity: 0.8; }
+    #inapp-overlay .btn-copy {
+      background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px; padding: 12px 32px; font-size: 14px; font-weight: 600;
+      cursor: pointer; width: 100%; max-width: 340px;
+    }
+    #inapp-overlay .btn-copy:active { opacity: 0.8; }
+    #inapp-overlay .copied { color: #4ade80; font-size: 13px; margin-top: 8px; display: none; }
+
+    /* Tips toggle */
+    #tips-btn {
+      position: fixed; top: max(env(safe-area-inset-top), 12px); left: 16px; z-index: 35;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(255,255,255,0.18);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: none; color: white; font-size: 16px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+    }
+    #tips-btn:active { opacity: 0.7; }
+
+    #tips-panel {
+      position: fixed;
+      top: calc(max(env(safe-area-inset-top), 12px) + 40px);
+      left: 16px; z-index: 35;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-radius: 12px; padding: 12px 14px;
+      color: white; font-size: 12px; line-height: 1.7;
+      max-width: 220px;
+      opacity: 0; pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    #tips-panel.show {
+      opacity: 1; pointer-events: auto; transform: translateY(0);
+    }
+    #tips-panel .tip-line { display: flex; gap: 6px; align-items: flex-start; }
+    #tips-panel .tip-dot {
+      flex-shrink: 0; width: 4px; height: 4px; border-radius: 50%;
+      background: #e94560; margin-top: 7px;
+    }
+    #tips-panel .tip-zh { color: rgba(255,255,255,0.95); }
+    #tips-panel .tip-en { color: rgba(255,255,255,0.5); font-size: 11px; }
+
     /* Top status bar */
     #status-bar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 30;
@@ -143,6 +224,17 @@
 </head>
 <body>
 
+  <!-- In-app browser warning (hidden by default, shown via JS) -->
+  <div id="inapp-overlay" style="display:none;">
+    <div class="icon-circle">&#128247;</div>
+    <h2>Need External Browser</h2>
+    <p class="sub">This app requires camera access.<br>In-app browsers (LINE, Facebook, Instagram) don't support camera.</p>
+    <div class="steps" id="inapp-steps"></div>
+    <button class="btn-open" id="btn-open-browser" onclick="openExternal()">Open in Browser</button>
+    <button class="btn-copy" onclick="copyUrl()">Copy URL</button>
+    <div class="copied" id="copied-msg">Copied!</div>
+  </div>
+
   <!-- Loading Screen -->
   <div id="loading">
     <div class="pulse-ring mb-6"></div>
@@ -160,12 +252,148 @@
   <!-- Label overlay -->
   <div id="overlay"></div>
 
+  <!-- Tips button + panel -->
+  <button id="tips-btn" onclick="toggleTips()">?</button>
+  <div id="tips-panel">
+    <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">保持手機穩定，對準物件</span><br><span class="tip-en">Hold steady, aim at object</span></div></div>
+    <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">點螢幕上的物件來辨識</span><br><span class="tip-en">Tap on screen to identify</span></div></div>
+    <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">點紅色英文標籤可重複發音</span><br><span class="tip-en">Tap red label to hear again</span></div></div>
+    <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">點空白處關閉標籤</span><br><span class="tip-en">Tap elsewhere to dismiss</span></div></div>
+  </div>
+
   <!-- Status bar -->
   <div id="status-bar">
     <div id="status-text">Tap any object to learn its name</div>
   </div>
 
   <script>
+    // ============================================================
+    // In-app browser detection & redirect
+    // ============================================================
+    ;(function detectInAppBrowser() {
+      const ua = navigator.userAgent || ''
+      const isLine = /\bLine\b/i.test(ua)
+      const isFB = /\bFBAV\b/i.test(ua) || /\bFBAN\b/i.test(ua)
+      const isIG = /\bInstagram\b/i.test(ua)
+      const isWeChat = /\bMicroMessenger\b/i.test(ua)
+      const isInApp = isLine || isFB || isIG || isWeChat
+
+      if (!isInApp) return
+
+      const appName = isLine ? 'LINE' : isFB ? 'Facebook' : isIG ? 'Instagram' : 'WeChat'
+      const isAndroid = /android/i.test(ua)
+      const isIOS = /iphone|ipad|ipod/i.test(ua)
+      const url = location.href
+
+      const overlay = document.getElementById('inapp-overlay')
+      const stepsEl = document.getElementById('inapp-steps')
+
+      overlay.style.display = 'flex'
+
+      // Platform-specific instructions
+      if (isAndroid) {
+        if (isLine) {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
+            <div class="step"><span class="step-num">2</span><span>選擇「<b>以其他瀏覽器開啟</b>」</span></div>
+          `
+        } else if (isFB) {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
+            <div class="step"><span class="step-num">2</span><span>選擇「<b>在瀏覽器中開啟</b>」</span></div>
+          `
+        } else {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
+            <div class="step"><span class="step-num">2</span><span>選擇「<b>以瀏覽器開啟</b>」</span></div>
+          `
+        }
+      } else if (isIOS) {
+        if (isLine) {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>Safari 圖示</b>（羅盤）</span></div>
+            <div class="step"><span class="step-num">2</span><span>會自動用 Safari 開啟此頁</span></div>
+          `
+        } else if (isFB) {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋯</b> 選單</span></div>
+            <div class="step"><span class="step-num">2</span><span>選擇「<b>在 Safari 中開啟</b>」</span></div>
+          `
+        } else {
+          stepsEl.innerHTML = `
+            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋯</b> 選單</span></div>
+            <div class="step"><span class="step-num">2</span><span>選擇「<b>在 Safari 中開啟</b>」</span></div>
+          `
+        }
+      } else {
+        stepsEl.innerHTML = `
+          <div class="step"><span class="step-num">1</span><span>複製下方網址</span></div>
+          <div class="step"><span class="step-num">2</span><span>貼到 Chrome / Safari 開啟</span></div>
+        `
+      }
+
+      // Try intent:// on Android to auto-open Chrome
+      window.openExternal = function() {
+        if (isAndroid) {
+          // intent:// scheme opens in Chrome
+          const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') +
+            '#Intent;scheme=https;package=com.android.chrome;end'
+          location.href = intentUrl
+        } else {
+          // iOS: try x-safari-https scheme or just copy
+          window.open(url, '_system')
+        }
+      }
+
+      // Copy URL
+      window.copyUrl = function() {
+        navigator.clipboard.writeText(url).then(() => {
+          const msg = document.getElementById('copied-msg')
+          msg.style.display = 'block'
+          setTimeout(() => msg.style.display = 'none', 2000)
+        }).catch(() => {
+          // Fallback for browsers without clipboard API
+          const ta = document.createElement('textarea')
+          ta.value = url
+          document.body.appendChild(ta)
+          ta.select()
+          document.execCommand('copy')
+          document.body.removeChild(ta)
+          const msg = document.getElementById('copied-msg')
+          msg.style.display = 'block'
+          setTimeout(() => msg.style.display = 'none', 2000)
+        })
+      }
+    })()
+
+    // ============================================================
+    // Tips toggle
+    // ============================================================
+    const tipsPanel = document.getElementById('tips-panel')
+    let tipsOpen = false
+
+    function toggleTips() {
+      tipsOpen = !tipsOpen
+      tipsPanel.classList.toggle('show', tipsOpen)
+    }
+
+    // Auto-show tips on every visit, auto-close after 10s or on tap
+    setTimeout(() => {
+      tipsPanel.classList.add('show')
+      tipsOpen = true
+      setTimeout(() => {
+        if (tipsOpen) { tipsPanel.classList.remove('show'); tipsOpen = false }
+      }, 10000)
+    }, 1500)
+
+    // Close tips when tapping camera area
+    document.addEventListener('click', (e) => {
+      if (tipsOpen && !e.target.closest('#tips-btn') && !e.target.closest('#tips-panel')) {
+        tipsPanel.classList.remove('show')
+        tipsOpen = false
+      }
+    }, true)
+
     // ============================================================
     // Configuration
     // ============================================================
@@ -189,14 +417,55 @@
     let currentTag = null
 
     // ============================================================
-    // Speech (TTS)
+    // Speech (TTS) — pick the most natural English voice available
     // ============================================================
+    let bestVoice = null
+
+    function pickVoice() {
+      const voices = speechSynthesis.getVoices()
+      if (!voices.length) return
+
+      // Priority keywords for natural-sounding voices (order matters)
+      const prefer = [
+        'Google US English',       // Android Chrome — very natural
+        'Google UK English Female',
+        'Google UK English Male',
+        'Samantha',                // iOS — natural female voice
+        'Karen',                   // iOS — Australian, very clear
+        'Daniel',                  // iOS — British male
+        'Moira',                   // iOS — Irish
+        'Rishi',                   // iOS — Indian English
+      ]
+
+      // Try preferred voices first
+      for (const name of prefer) {
+        const v = voices.find(v => v.name.includes(name))
+        if (v) { bestVoice = v; return }
+      }
+
+      // Fallback: any en-US or en-GB voice that isn't "compact" or "espeak"
+      const natural = voices.find(v =>
+        v.lang.startsWith('en') &&
+        !v.name.toLowerCase().includes('compact') &&
+        !v.name.toLowerCase().includes('espeak')
+      )
+      if (natural) { bestVoice = natural; return }
+
+      // Last resort: any English voice
+      bestVoice = voices.find(v => v.lang.startsWith('en')) || null
+    }
+
+    // Voices load async on some browsers
+    speechSynthesis.onvoiceschanged = pickVoice
+    pickVoice()
+
     function speak(text) {
       if (speechSynthesis.speaking) speechSynthesis.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = 'en-US'
-      utterance.rate = 0.85
+      utterance.rate = 0.9
       utterance.pitch = 1
+      if (bestVoice) utterance.voice = bestVoice
       speechSynthesis.speak(utterance)
     }
 
