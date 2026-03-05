@@ -1,0 +1,6 @@
+.vercel/
+*.key
+*.crt
+*.pem
+.env
+.env.*
