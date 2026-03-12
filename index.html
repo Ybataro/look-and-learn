@@ -446,10 +446,10 @@
     }
     #scene-help-panel {
       position: absolute; top: 60px; left: 48px; z-index: 60;
-      background: rgba(255,255,255,0.95); border-radius: 12px;
-      padding: 10px 14px; max-width: 220px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-      font-size: 12px; line-height: 1.6; color: #334155;
+      background: rgba(0,0,0,0.6); border-radius: 12px;
+      padding: 8px 12px; max-width: 210px;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      font-size: 11px; line-height: 1.6; color: rgba(255,255,255,0.9);
       transition: opacity 0.3s, transform 0.3s;
       pointer-events: none;
     }
@@ -460,46 +460,48 @@
     #scene-image {
       max-width: 100%; max-height: 100%; object-fit: contain;
     }
-    /* Scene Label v2 — large cards with connector lines */
+    /* Scene Label v2 — transparent text labels (no background box) */
     .scene-label-v2 {
       position: absolute; pointer-events: auto; cursor: pointer;
-      width: 150px; padding: 6px 8px;
-      background: rgba(255,255,255,0.95);
-      border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      width: auto; padding: 2px 4px;
+      background: none;
       z-index: 56;
       animation: labelFadeIn 0.4s ease-out both;
-      transition: transform 0.3s, box-shadow 0.3s;
-      display: flex; align-items: center; gap: 6px;
+      transition: transform 0.3s, text-shadow 0.3s;
+      display: flex; align-items: flex-start; gap: 4px;
     }
     .scene-label-v2 .slv2-text {
-      flex: 1; min-width: 0; text-align: center;
+      text-align: center;
     }
     @keyframes labelFadeIn {
       from { opacity: 0; transform: translateY(8px) scale(0.9); }
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
     .scene-label-v2 .slv2-en {
-      font-size: 14px; font-weight: 700; color: #1e293b;
-      line-height: 1.3; text-transform: capitalize;
+      font-size: 18px; font-weight: 800; color: #1a1a2e;
+      line-height: 1.2; text-transform: capitalize;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 6px rgba(255,255,255,0.8);
     }
     .scene-label-v2 .slv2-phonetic {
-      font-size: 11px; color: #94a3b8; margin-top: 1px;
+      font-size: 12px; color: #555; margin-top: 0;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
     }
     .scene-label-v2 .slv2-zh {
-      font-size: 12px; color: #0d59f2; font-weight: 600; margin-top: 2px;
+      font-size: 16px; color: #0d59f2; font-weight: 700; margin-top: 0;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 4px rgba(255,255,255,0.8);
     }
-    /* Bookmark button on label — right side vertical */
+    /* Bookmark button on label — small side button */
     .scene-label-v2 .slv2-bookmark {
-      flex-shrink: 0; width: 28px; padding: 4px 0; border-radius: 8px;
-      border: 1px solid #e2e8f0; background: #f8fafc;
-      font-size: 10px; color: #64748b; cursor: pointer;
+      flex-shrink: 0; width: 24px; padding: 3px 0; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.6); background: rgba(255,255,255,0.7);
+      font-size: 9px; color: #64748b; cursor: pointer;
       transition: all 0.2s; line-height: 1.2;
       text-align: center; writing-mode: vertical-rl; letter-spacing: 1px;
+      backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     }
     .scene-label-v2 .slv2-bookmark:active { transform: scale(0.95); }
     .scene-label-v2 .slv2-bookmark.saved {
-      background: #dcfce7; border-color: #86efac; color: #16a34a;
+      background: rgba(220,252,231,0.8); border-color: #86efac; color: #16a34a;
       pointer-events: none;
     }
     /* Connector dot on the item */
@@ -520,23 +522,23 @@
       stroke: #e94560; stroke-width: 1.5; stroke-dasharray: 4 3;
       opacity: 0.6;
     }
-    /* Narration highlight — strong bounce + glow */
+    /* Narration highlight — scale up + red text + glow */
     .scene-label-v2.narrating {
-      transform: scale(1.15);
-      background: linear-gradient(135deg, #FFF8E1, #FFFDE7);
-      box-shadow: 0 0 0 3px #FFD700, 0 0 20px rgba(255,215,0,0.5), 0 4px 16px rgba(0,0,0,0.2);
+      transform: scale(1.2);
       z-index: 100;
       animation: narratePulse 0.8s ease-in-out infinite;
     }
     .scene-label-v2.narrating .slv2-en {
       color: #e94560;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 12px rgba(233,69,96,0.4);
     }
     @keyframes narratePulse {
-      0%, 100% { transform: scale(1.15); box-shadow: 0 0 0 3px #FFD700, 0 0 20px rgba(255,215,0,0.5), 0 4px 16px rgba(0,0,0,0.2); }
-      50% { transform: scale(1.2); box-shadow: 0 0 0 4px #FFC107, 0 0 30px rgba(255,215,0,0.7), 0 6px 20px rgba(0,0,0,0.25); }
+      0%, 100% { transform: scale(1.2); }
+      50% { transform: scale(1.28); }
     }
-    .scene-label-v2.active {
-      box-shadow: 0 0 0 2px #0d59f2, 0 4px 16px rgba(13,89,242,0.25);
+    .scene-label-v2.active .slv2-en {
+      color: #0d59f2;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 10px rgba(13,89,242,0.4);
     }
 
     /* Scene card gradient backgrounds */
@@ -2000,7 +2002,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
 
     // ── Label v2 Layout Algorithm (anti-overlap) ──
     function layoutLabels(items, containerW, containerH, imgRect, cRect) {
-      const LW = 150, LH = 70, PAD = 8
+      const LW = 130, LH = 60, PAD = 6
       const offX = imgRect.left - cRect.left
       const offY = imgRect.top - cRect.top
       const positions = items.map(item => {
@@ -2190,21 +2192,14 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
     }
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
-    // ── Scene help tip ──
-    let sceneHelpTimer = null
+    // ── Scene help tip (always visible, toggle with ? button) ──
     const sceneHelpBtn = document.getElementById('scene-help-btn')
     const sceneHelpPanel = document.getElementById('scene-help-panel')
     sceneHelpBtn.addEventListener('click', () => {
       sceneHelpPanel.classList.toggle('hidden')
-      clearTimeout(sceneHelpTimer)
-      if (!sceneHelpPanel.classList.contains('hidden')) {
-        sceneHelpTimer = setTimeout(() => sceneHelpPanel.classList.add('hidden'), 6000)
-      }
     })
     function showSceneHelpBriefly() {
       sceneHelpPanel.classList.remove('hidden')
-      clearTimeout(sceneHelpTimer)
-      sceneHelpTimer = setTimeout(() => sceneHelpPanel.classList.add('hidden'), 5000)
     }
 
     // ── Scene back + regenerate ──
