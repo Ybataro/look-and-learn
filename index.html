@@ -482,11 +482,20 @@
       stroke: #e94560; stroke-width: 1.5; stroke-dasharray: 4 3;
       opacity: 0.6;
     }
-    /* Narration highlight */
+    /* Narration highlight — strong bounce + glow */
     .scene-label-v2.narrating {
-      transform: scale(1.12);
-      box-shadow: 0 0 0 3px #FFD700, 0 4px 16px rgba(0,0,0,0.25);
+      transform: scale(1.15);
+      background: linear-gradient(135deg, #FFF8E1, #FFFDE7);
+      box-shadow: 0 0 0 3px #FFD700, 0 0 20px rgba(255,215,0,0.5), 0 4px 16px rgba(0,0,0,0.2);
       z-index: 100;
+      animation: narratePulse 0.8s ease-in-out infinite;
+    }
+    .scene-label-v2.narrating .slv2-en {
+      color: #e94560;
+    }
+    @keyframes narratePulse {
+      0%, 100% { transform: scale(1.15); box-shadow: 0 0 0 3px #FFD700, 0 0 20px rgba(255,215,0,0.5), 0 4px 16px rgba(0,0,0,0.2); }
+      50% { transform: scale(1.2); box-shadow: 0 0 0 4px #FFC107, 0 0 30px rgba(255,215,0,0.7), 0 6px 20px rgba(0,0,0,0.25); }
     }
     .scene-label-v2.active {
       box-shadow: 0 0 0 2px #0d59f2, 0 4px 16px rgba(13,89,242,0.25);
@@ -551,6 +560,34 @@
       cursor: pointer; transition: all 0.2s;
     }
     .scene-action-btn:active { transform: scale(0.97); border-color: #94a3b8; }
+
+    /* Custom scene input */
+    .scene-custom-input-row {
+      display: flex; gap: 8px; padding: 0 16px 8px; align-items: center;
+    }
+    .scene-custom-input {
+      flex: 1; padding: 10px 14px; border-radius: 12px;
+      border: 1.5px solid #e2e8f0; background: white;
+      font-size: 14px; outline: none; font-family: inherit;
+    }
+    .scene-custom-input:focus { border-color: #0d59f2; }
+    .scene-custom-input::placeholder { color: #94a3b8; }
+    .scene-custom-add-btn {
+      flex-shrink: 0; padding: 10px 16px; border-radius: 12px;
+      border: none; background: #0d59f2; color: white;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .scene-custom-add-btn:active { opacity: 0.7; }
+    /* Delete badge on custom scene cards */
+    .scene-card .delete-badge {
+      position: absolute; top: 4px; left: 4px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: rgba(239,68,68,0.9); color: white;
+      font-size: 12px; font-weight: 700; border: none;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 2;
+    }
     #scene-bottom-bar {
       position: absolute; bottom: 0; left: 0; right: 0; z-index: 55;
       background: rgba(0,0,0,0.8);
@@ -937,7 +974,11 @@
   <div id="scenes-section">
     <div style="flex-shrink:0;padding-top:max(env(safe-area-inset-top),12px);background:white;border-bottom:1px solid rgba(0,0,0,0.06);">
       <h2 style="font-size:20px;font-weight:800;color:#1e293b;padding:12px 16px 4px;">Scenes 情境學習</h2>
-      <p style="font-size:13px;color:#64748b;padding:0 16px 12px;">Pick a scene to explore vocabulary</p>
+      <p style="font-size:13px;color:#64748b;padding:0 16px 8px;">Pick a scene to explore vocabulary</p>
+      <div class="scene-custom-input-row">
+        <input class="scene-custom-input" id="scene-custom-input" type="text" placeholder="Add scene... e.g. Airport 機場">
+        <button class="scene-custom-add-btn" id="scene-custom-add-btn">+ Add</button>
+      </div>
     </div>
     <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
       <div class="scene-grid" id="scene-grid"></div>
@@ -1515,52 +1556,145 @@
       }
     }
 
+    // ── Custom Scenes Store (localStorage) ──
+    const CustomScenes = {
+      KEY: 'look_learn_custom_scenes',
+      _data: null,
+      load() {
+        if (this._data) return this._data
+        try { this._data = JSON.parse(localStorage.getItem(this.KEY)) || [] }
+        catch { this._data = [] }
+        return this._data
+      },
+      save() { localStorage.setItem(this.KEY, JSON.stringify(this._data)) },
+      getAll() { return this.load() },
+      add(scene) { this.load(); this._data.push(scene); this.save() },
+      remove(key) { this.load(); this._data = this._data.filter(s => s.key !== key); this.save() }
+    }
+
+    // Gradient palette for custom scenes
+    const CUSTOM_GRADIENTS = [
+      'linear-gradient(135deg, #B2EBF2, #80DEEA)',
+      'linear-gradient(135deg, #F0F4C3, #DCE775)',
+      'linear-gradient(135deg, #FFCCBC, #FF8A65)',
+      'linear-gradient(135deg, #E1BEE7, #CE93D8)',
+      'linear-gradient(135deg, #C5CAE9, #9FA8DA)',
+      'linear-gradient(135deg, #DCEDC8, #AED581)',
+      'linear-gradient(135deg, #FFE0B2, #FFB74D)',
+      'linear-gradient(135deg, #B3E5FC, #81D4FA)',
+    ]
+
     // ── Scene Grid ──
     let sceneGridInited = false
+    function getAllScenes() {
+      return [...SCENE_CATEGORIES, ...CustomScenes.getAll()]
+    }
     function initSceneGrid() {
-      if (sceneGridInited) { updateSceneGridThumbs(); return }
+      if (sceneGridInited) { rebuildSceneGrid(); return }
       sceneGridInited = true
+      rebuildSceneGrid()
+      // Bottom buttons
+      document.getElementById('scene-camera-btn').addEventListener('click', captureScenePhoto)
+      document.getElementById('scene-upload-btn').addEventListener('click', pickScenePhoto)
+      // Custom scene input
+      document.getElementById('scene-custom-add-btn').addEventListener('click', addCustomScene)
+      document.getElementById('scene-custom-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') addCustomScene()
+      })
+    }
+    function rebuildSceneGrid() {
       const grid = document.getElementById('scene-grid')
       grid.innerHTML = ''
-      SCENE_CATEGORIES.forEach(cat => {
+      const all = getAllScenes()
+      all.forEach(cat => {
         const card = document.createElement('div')
         card.className = 'scene-card'
         card.dataset.sceneKey = cat.key
         const cached = SceneCache.has(cat.key)
         const thumb = cached ? SceneCache.getThumb(cat.key) : null
+        const isCustom = !SCENE_CATEGORIES.some(c => c.key === cat.key)
         card.innerHTML = `
           <div class="scene-card-icon ${cached ? '' : 'has-gradient'}" style="${cached ? '' : '--card-gradient:' + cat.gradient}; position:relative;">
             ${thumb ? '<img class="scene-thumb" src="' + thumb + '" alt="">' : '<span style="font-size:40px">' + cat.icon + '</span>'}
             ${cached ? '<span class="cached-badge">Cached</span>' : ''}
+            ${isCustom ? '<button class="delete-badge" data-delete-key="' + cat.key + '">✕</button>' : ''}
           </div>
           <div class="scene-card-body">
             <h3>${cat.name}</h3>
             <p>${cat.name_zh}</p>
           </div>`
-        card.addEventListener('click', () => openSceneCategory(cat))
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.delete-badge')) return
+          openSceneCategory(cat)
+        })
+        // Delete handler for custom scenes
+        const delBtn = card.querySelector('.delete-badge')
+        if (delBtn) {
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            CustomScenes.remove(cat.key)
+            SceneCache.remove(cat.key)
+            rebuildSceneGrid()
+          })
+        }
         grid.appendChild(card)
       })
-      // Bottom buttons
-      document.getElementById('scene-camera-btn').addEventListener('click', captureScenePhoto)
-      document.getElementById('scene-upload-btn').addEventListener('click', pickScenePhoto)
     }
-    function updateSceneGridThumbs() {
-      SCENE_CATEGORIES.forEach(cat => {
-        const card = document.querySelector(`.scene-card[data-scene-key="${cat.key}"]`)
-        if (!card) return
-        const cached = SceneCache.has(cat.key)
-        const thumb = cached ? SceneCache.getThumb(cat.key) : null
-        const iconEl = card.querySelector('.scene-card-icon')
-        if (thumb) {
-          iconEl.className = 'scene-card-icon'
-          iconEl.style.cssText = 'position:relative;'
-          iconEl.innerHTML = `<img class="scene-thumb" src="${thumb}" alt=""><span class="cached-badge">Cached</span>`
-        } else {
-          iconEl.className = 'scene-card-icon has-gradient'
-          iconEl.style.cssText = '--card-gradient:' + cat.gradient + '; position:relative;'
-          iconEl.innerHTML = `<span style="font-size:40px">${cat.icon}</span>`
-        }
-      })
+
+    // ── Add custom scene ──
+    async function addCustomScene() {
+      const input = document.getElementById('scene-custom-input')
+      const raw = input.value.trim()
+      if (!raw) return
+      input.value = ''
+
+      // Parse: user might type "Airport 機場" or just "Airport"
+      let name = raw, name_zh = ''
+      // Try to split by space where second part has CJK
+      const cjkMatch = raw.match(/^([A-Za-z\s]+)\s+([\u4e00-\u9fff\u3400-\u4dbf]+.*)$/)
+      if (cjkMatch) {
+        name = cjkMatch[1].trim()
+        name_zh = cjkMatch[2].trim()
+      }
+
+      const key = name.toLowerCase().replace(/\s+/g, '_')
+      // Check duplicate
+      if (getAllScenes().some(s => s.key === key)) {
+        alert(`"${name}" already exists!`)
+        return
+      }
+
+      // If no Chinese name, use Gemini to translate + generate sample items
+      let sampleItems = []
+      if (!name_zh) {
+        try {
+          const resp = await fetch(API_URL, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: `Translate the scene name "${name}" to Traditional Chinese, and list 12 common items found in this scene.
+Return JSON only (no markdown): {"name_zh":"繁體中文","items":["item1","item2",...]}` }] }],
+              generationConfig: { temperature: 0, maxOutputTokens: 200 }
+            })
+          })
+          if (resp.ok) {
+            const data = await resp.json()
+            let text = data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+            if (text.includes('```')) text = text.replace(/^[\s\S]*?```(?:json)?\s*/, '').replace(/\s*```[\s\S]*$/, '')
+            const j = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}')
+            name_zh = j.name_zh || ''
+            sampleItems = j.items || []
+          }
+        } catch {}
+      }
+
+      const gradientIdx = CustomScenes.getAll().length % CUSTOM_GRADIENTS.length
+      const scene = {
+        key, icon: '🏷️', name, name_zh: name_zh || name,
+        gradient: CUSTOM_GRADIENTS[gradientIdx],
+        sampleItems: sampleItems.length ? sampleItems : [name.toLowerCase()]
+      }
+      CustomScenes.add(scene)
+      rebuildSceneGrid()
     }
 
     // ── File inputs (camera + upload) ──
@@ -1666,7 +1800,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       const itemsScroll = document.getElementById('scene-items-scroll')
       const loading = document.getElementById('scene-loading')
 
-      document.getElementById('scene-title').textContent = `${cat.icon} ${cat.name}`
+      document.getElementById('scene-title').textContent = `${cat.icon} ${cat.name} ${cat.name_zh}`
       labelsEl.innerHTML = ''
       itemsScroll.innerHTML = ''
       viewer.classList.add('active')
@@ -1718,7 +1852,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
 
         // Cache it
         SceneCache.set(cat.key, { image: gen.image, mimeType: gen.mimeType, items })
-        updateSceneGridThumbs()
+        rebuildSceneGrid()
 
         setTimeout(() => { loading.classList.add('hidden') }, 300)
 
