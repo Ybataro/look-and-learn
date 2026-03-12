@@ -1224,9 +1224,11 @@
     var ttsAudio = null, ttsAbort = null
     function speakBrowserFallback(text) {
       if (!hasSpeechSynthesis) return
-      if (speechSynthesis.speaking) speechSynthesis.cancel()
-      var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1
-      if (bestVoice) u.voice = bestVoice; speechSynthesis.speak(u)
+      speechSynthesis.cancel()
+      setTimeout(() => {
+        var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1
+        if (bestVoice) u.voice = bestVoice; speechSynthesis.speak(u)
+      }, 50)
     }
 
     function speak(text) {
@@ -2179,15 +2181,18 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
     function speakAndWait(text) {
       return new Promise(resolve => {
         if (!hasSpeechSynthesis) { setTimeout(resolve, 500); return }
-        if (speechSynthesis.speaking) speechSynthesis.cancel()
-        const utt = new SpeechSynthesisUtterance(text)
-        utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1
-        if (bestVoice) utt.voice = bestVoice
-        utt.onend = resolve
-        utt.onerror = resolve
-        speechSynthesis.speak(utt)
-        // Safety timeout
-        setTimeout(resolve, 4000)
+        speechSynthesis.cancel()
+        let resolved = false
+        const done = () => { if (!resolved) { resolved = true; resolve() } }
+        setTimeout(() => {
+          const utt = new SpeechSynthesisUtterance(text)
+          utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1
+          if (bestVoice) utt.voice = bestVoice
+          utt.onend = done
+          utt.onerror = done
+          speechSynthesis.speak(utt)
+          setTimeout(done, 4000)
+        }, 50)
       })
     }
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
