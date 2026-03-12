@@ -1596,40 +1596,93 @@
       }
     ]
 
-    // ── SceneCache (localStorage, permanent — no eviction) ──
+    // ── SceneCache (IndexedDB — unlimited storage) ──
+    // In-memory mirror for sync reads; IndexedDB for persistence
     const SceneCache = {
-      KEY_PREFIX: 'look_learn_scene_',
-      get(sceneKey) {
-        try {
-          const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
-          if (!raw) return null
-          return JSON.parse(raw) // { image, mimeType, items, ts }
-        } catch { return null }
+      _db: null,
+      _mem: {}, // { sceneKey: { image, mimeType, items, ts } }
+      _ready: false,
+      async init() {
+        return new Promise((resolve, reject) => {
+          const req = indexedDB.open('look_learn_scenes', 1)
+          req.onupgradeneeded = (e) => { e.target.result.createObjectStore('scenes') }
+          req.onsuccess = (e) => {
+            this._db = e.target.result
+            // Load all into memory
+            const tx = this._db.transaction('scenes', 'readonly')
+            const store = tx.objectStore('scenes')
+            const getAll = store.getAll()
+            const getAllKeys = store.getAllKeys()
+            getAll.onsuccess = () => {
+              getAllKeys.onsuccess = () => {
+                const keys = getAllKeys.result
+                const vals = getAll.result
+                for (let i = 0; i < keys.length; i++) this._mem[keys[i]] = vals[i]
+                this._ready = true
+                // Migrate from localStorage if any
+                this._migrateFromLocalStorage()
+                resolve()
+              }
+            }
+            tx.onerror = () => resolve()
+          }
+          req.onerror = () => { this._ready = true; resolve() }
+        })
       },
-      set(sceneKey, data) {
-        const entry = JSON.stringify({ image: data.image, mimeType: data.mimeType, items: data.items, ts: Date.now() })
-        try { localStorage.setItem(this.KEY_PREFIX + sceneKey, entry) }
-        catch (e) {
-          // localStorage full — notify user
-          console.warn('localStorage full, cannot save scene:', e)
-          alert('Storage is full. Please delete some cached scenes to save new ones.')
+      _migrateFromLocalStorage() {
+        const prefix = 'look_learn_scene_'
+        const toRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k && k.startsWith(prefix)) {
+            const sceneKey = k.slice(prefix.length)
+            if (!this._mem[sceneKey]) {
+              try {
+                const d = JSON.parse(localStorage.getItem(k))
+                this._mem[sceneKey] = d
+                this._dbPut(sceneKey, d)
+              } catch {}
+            }
+            toRemove.push(k)
+          }
         }
+        toRemove.forEach(k => localStorage.removeItem(k))
+      },
+      _dbPut(sceneKey, data) {
+        if (!this._db) return
+        try {
+          const tx = this._db.transaction('scenes', 'readwrite')
+          tx.objectStore('scenes').put(data, sceneKey)
+        } catch {}
+      },
+      _dbDelete(sceneKey) {
+        if (!this._db) return
+        try {
+          const tx = this._db.transaction('scenes', 'readwrite')
+          tx.objectStore('scenes').delete(sceneKey)
+        } catch {}
+      },
+      get(sceneKey) { return this._mem[sceneKey] || null },
+      set(sceneKey, data) {
+        const entry = { image: data.image, mimeType: data.mimeType, items: data.items, ts: Date.now() }
+        this._mem[sceneKey] = entry
+        this._dbPut(sceneKey, entry)
       },
       remove(sceneKey) {
-        localStorage.removeItem(this.KEY_PREFIX + sceneKey)
+        delete this._mem[sceneKey]
+        this._dbDelete(sceneKey)
       },
-      has(sceneKey) {
-        return localStorage.getItem(this.KEY_PREFIX + sceneKey) !== null
-      },
+      has(sceneKey) { return !!this._mem[sceneKey] },
       getThumb(sceneKey) {
-        try {
-          const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
-          if (!raw) return null
-          const d = JSON.parse(raw)
-          return 'data:' + (d.mimeType || 'image/png') + ';base64,' + d.image
-        } catch { return null }
+        const d = this._mem[sceneKey]
+        if (!d) return null
+        return 'data:' + (d.mimeType || 'image/png') + ';base64,' + d.image
       }
     }
+    // Initialize immediately
+    SceneCache.init().then(() => {
+      if (sceneGridInited) rebuildSceneGrid()
+    })
 
     // ── Custom Scenes Store (localStorage) ──
     const CustomScenes = {
