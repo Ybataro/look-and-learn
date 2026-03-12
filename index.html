@@ -438,8 +438,6 @@
     }
     #scene-zoom-wrapper {
       position: relative; display: inline-block;
-      transform-origin: 0 0;
-      transition: transform 0.05s linear;
     }
     /* Scene help tip */
     #scene-help-btn {
@@ -2207,18 +2205,15 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
 
     // ── Pinch-to-zoom for scene image ──
-    let sceneZoom = 1, scenePanX = 0, scenePanY = 0
-    let pinchStartDist = 0, pinchStartZoom = 1
-    let panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0
+    // Zoom centered on pinch midpoint; release fingers → snap back to 1x
+    let pinchStartDist = 0
     const zoomWrapper = document.getElementById('scene-zoom-wrapper')
     const zoomContainer = document.getElementById('scene-image-container')
+    let pinchCenterX = 0, pinchCenterY = 0
 
-    function applySceneZoom() {
-      zoomWrapper.style.transform = `translate(${scenePanX}px, ${scenePanY}px) scale(${sceneZoom})`
-    }
     function resetSceneZoom() {
-      sceneZoom = 1; scenePanX = 0; scenePanY = 0
       zoomWrapper.style.transform = ''
+      zoomWrapper.style.transformOrigin = ''
     }
 
     zoomContainer.addEventListener('touchstart', (e) => {
@@ -2227,12 +2222,11 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
         const dx = e.touches[0].clientX - e.touches[1].clientX
         const dy = e.touches[0].clientY - e.touches[1].clientY
         pinchStartDist = Math.hypot(dx, dy)
-        pinchStartZoom = sceneZoom
-      } else if (e.touches.length === 1 && sceneZoom > 1) {
-        panStartX = e.touches[0].clientX
-        panStartY = e.touches[0].clientY
-        panStartPanX = scenePanX
-        panStartPanY = scenePanY
+        // Pinch midpoint relative to wrapper
+        const rect = zoomWrapper.getBoundingClientRect()
+        pinchCenterX = ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left) / rect.width * 100
+        pinchCenterY = ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top) / rect.height * 100
+        zoomWrapper.style.transformOrigin = `${pinchCenterX}% ${pinchCenterY}%`
       }
     }, { passive: false })
 
@@ -2242,19 +2236,13 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
         const dx = e.touches[0].clientX - e.touches[1].clientX
         const dy = e.touches[0].clientY - e.touches[1].clientY
         const dist = Math.hypot(dx, dy)
-        sceneZoom = Math.max(1, Math.min(4, pinchStartZoom * (dist / pinchStartDist)))
-        if (sceneZoom <= 1.05) { sceneZoom = 1; scenePanX = 0; scenePanY = 0 }
-        applySceneZoom()
-      } else if (e.touches.length === 1 && sceneZoom > 1) {
-        e.preventDefault()
-        scenePanX = panStartPanX + (e.touches[0].clientX - panStartX)
-        scenePanY = panStartPanY + (e.touches[0].clientY - panStartY)
-        applySceneZoom()
+        const zoom = Math.max(1, Math.min(4, dist / pinchStartDist))
+        zoomWrapper.style.transform = `scale(${zoom})`
       }
     }, { passive: false })
 
     zoomContainer.addEventListener('touchend', (e) => {
-      if (e.touches.length === 0 && sceneZoom <= 1.05) resetSceneZoom()
+      if (e.touches.length < 2) resetSceneZoom()
     })
 
     // ── Scene help tip (always visible, toggle with ? button) ──
