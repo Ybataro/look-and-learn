@@ -435,6 +435,28 @@
       flex: 1; display: flex; align-items: center; justify-content: center;
       position: relative; overflow: hidden;
     }
+    /* Scene help tip */
+    #scene-help-btn {
+      position: absolute; top: 60px; left: 12px; z-index: 60;
+      width: 30px; height: 30px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.85); color: #0d59f2;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #scene-help-panel {
+      position: absolute; top: 60px; left: 48px; z-index: 60;
+      background: rgba(255,255,255,0.95); border-radius: 12px;
+      padding: 10px 14px; max-width: 220px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+      font-size: 12px; line-height: 1.6; color: #334155;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+    #scene-help-panel.hidden {
+      opacity: 0; transform: translateX(-8px);
+    }
+    #scene-help-panel .help-icon { margin-right: 4px; }
     #scene-image {
       max-width: 100%; max-height: 100%; object-fit: contain;
     }
@@ -465,7 +487,7 @@
       font-size: 11px; color: #94a3b8; margin-top: 1px;
     }
     .scene-label-v2 .slv2-zh {
-      font-size: 12px; color: #e94560; font-weight: 600; margin-top: 2px;
+      font-size: 12px; color: #0d59f2; font-weight: 600; margin-top: 2px;
     }
     /* Bookmark button on label — right side vertical */
     .scene-label-v2 .slv2-bookmark {
@@ -1025,6 +1047,13 @@
     <div id="scene-image-container">
       <img id="scene-image" alt="Scene">
       <div id="scene-labels"></div>
+      <button id="scene-help-btn">?</button>
+      <div id="scene-help-panel" class="hidden">
+        <div><span class="help-icon">👆</span>點擊<b>英文單字</b>可聽發音</div>
+        <div><span class="help-icon">📌</span>點<b>記住</b>收藏到單字本</div>
+        <div><span class="help-icon">🔊</span>自動朗讀逐一唸出單字</div>
+        <div><span class="help-icon">🔄</span>右上角可重新生成場景</div>
+      </div>
     </div>
     <div id="scene-bottom-bar">
       <div id="scene-items-scroll"></div>
@@ -1816,6 +1845,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       labelsEl.innerHTML = ''
       itemsScroll.innerHTML = ''
       viewer.classList.add('active')
+      showSceneHelpBriefly()
 
       // Check cache first
       const cached = SceneCache.get(cat.key)
@@ -2159,6 +2189,23 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       })
     }
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+    // ── Scene help tip ──
+    let sceneHelpTimer = null
+    const sceneHelpBtn = document.getElementById('scene-help-btn')
+    const sceneHelpPanel = document.getElementById('scene-help-panel')
+    sceneHelpBtn.addEventListener('click', () => {
+      sceneHelpPanel.classList.toggle('hidden')
+      clearTimeout(sceneHelpTimer)
+      if (!sceneHelpPanel.classList.contains('hidden')) {
+        sceneHelpTimer = setTimeout(() => sceneHelpPanel.classList.add('hidden'), 6000)
+      }
+    })
+    function showSceneHelpBriefly() {
+      sceneHelpPanel.classList.remove('hidden')
+      clearTimeout(sceneHelpTimer)
+      sceneHelpTimer = setTimeout(() => sceneHelpPanel.classList.add('hidden'), 5000)
+    }
 
     // ── Scene back + regenerate ──
     document.getElementById('scene-back-btn').addEventListener('click', () => {
