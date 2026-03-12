@@ -526,6 +526,16 @@
       font-size: 9px; font-weight: 700; padding: 2px 6px;
       border-radius: 6px;
     }
+    .scene-card .regen-badge {
+      position: absolute; bottom: 4px; right: 4px;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(0,0,0,0.55); color: white;
+      border: none; font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .2s, transform .2s;
+      z-index: 2;
+    }
+    .scene-card .regen-badge:active { transform: scale(0.9); background: rgba(233,69,96,0.8); }
 
     /* Scene loading progress */
     #scene-loading .progress-container {
@@ -1508,52 +1518,27 @@
       }
     ]
 
-    // ── SceneCache (localStorage, LRU, 4MB budget) ──
+    // ── SceneCache (localStorage, permanent — no eviction) ──
     const SceneCache = {
       KEY_PREFIX: 'look_learn_scene_',
-      MAX_SIZE: 20 * 1024 * 1024, // 20MB — fits ~10-15 scenes
       get(sceneKey) {
         try {
           const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
           if (!raw) return null
-          const d = JSON.parse(raw)
-          // touch timestamp
-          d.ts = Date.now()
-          localStorage.setItem(this.KEY_PREFIX + sceneKey, JSON.stringify(d))
-          return d // { image, mimeType, items, ts }
+          return JSON.parse(raw) // { image, mimeType, items, ts }
         } catch { return null }
       },
       set(sceneKey, data) {
         const entry = JSON.stringify({ image: data.image, mimeType: data.mimeType, items: data.items, ts: Date.now() })
-        // Evict until under budget
-        while (this.getSize() + entry.length > this.MAX_SIZE) {
-          if (!this.evictOldest()) break
+        try { localStorage.setItem(this.KEY_PREFIX + sceneKey, entry) }
+        catch (e) {
+          // localStorage full — notify user
+          console.warn('localStorage full, cannot save scene:', e)
+          alert('Storage is full. Please delete some cached scenes to save new ones.')
         }
-        try { localStorage.setItem(this.KEY_PREFIX + sceneKey, entry) } catch {}
       },
       remove(sceneKey) {
         localStorage.removeItem(this.KEY_PREFIX + sceneKey)
-      },
-      getSize() {
-        let total = 0
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i)
-          if (k.startsWith(this.KEY_PREFIX)) total += localStorage.getItem(k).length
-        }
-        return total
-      },
-      evictOldest() {
-        let oldestKey = null, oldestTs = Infinity
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i)
-          if (!k.startsWith(this.KEY_PREFIX)) continue
-          try {
-            const d = JSON.parse(localStorage.getItem(k))
-            if (d.ts < oldestTs) { oldestTs = d.ts; oldestKey = k }
-          } catch { localStorage.removeItem(k); return true }
-        }
-        if (oldestKey) { localStorage.removeItem(oldestKey); return true }
-        return false
       },
       has(sceneKey) {
         return localStorage.getItem(this.KEY_PREFIX + sceneKey) !== null
@@ -1628,7 +1613,8 @@
         card.innerHTML = `
           <div class="scene-card-icon ${cached ? '' : 'has-gradient'}" style="${cached ? '' : '--card-gradient:' + cat.gradient}; position:relative;">
             ${thumb ? '<img class="scene-thumb" src="' + thumb + '" alt="">' : '<span style="font-size:40px">' + cat.icon + '</span>'}
-            ${cached ? '<span class="cached-badge">Cached</span>' : ''}
+            ${cached ? '<span class="cached-badge">Saved ✓</span>' : ''}
+            ${cached ? '<button class="regen-badge" title="Regenerate">🔄</button>' : ''}
             ${isCustom ? '<button class="delete-badge" data-delete-key="' + cat.key + '">✕</button>' : ''}
           </div>
           <div class="scene-card-body">
@@ -1636,9 +1622,17 @@
             <p>${cat.name_zh}</p>
           </div>`
         card.addEventListener('click', (e) => {
-          if (e.target.closest('.delete-badge')) return
+          if (e.target.closest('.delete-badge') || e.target.closest('.regen-badge')) return
           openSceneCategory(cat)
         })
+        // Regenerate handler
+        const regenBtn = card.querySelector('.regen-badge')
+        if (regenBtn) {
+          regenBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            regenSceneFromCard(cat)
+          })
+        }
         // Delete handler for custom scenes
         const delBtn = card.querySelector('.delete-badge')
         if (delBtn) {
@@ -1900,6 +1894,25 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       itemsScroll.innerHTML = ''
       loading.classList.remove('hidden')
       runScenePipeline(cat, img, labelsEl, itemsScroll, loading)
+    }
+
+    // ── Regenerate scene from card grid (clears cache → re-runs pipeline in viewer) ──
+    async function regenSceneFromCard(cat) {
+      SceneCache.remove(cat.key)
+      rebuildSceneGrid()
+      // Open the viewer and run pipeline
+      _currentSceneCat = cat
+      const viewer = document.getElementById('scene-viewer')
+      const img = document.getElementById('scene-image')
+      const labelsEl = document.getElementById('scene-labels')
+      const itemsScroll = document.getElementById('scene-items-scroll')
+      const loading = document.getElementById('scene-loading')
+      document.getElementById('scene-title').textContent = `${cat.icon} ${cat.name} ${cat.name_zh}`
+      labelsEl.innerHTML = ''
+      itemsScroll.innerHTML = ''
+      viewer.classList.add('active')
+      loading.classList.remove('hidden')
+      await runScenePipeline(cat, img, labelsEl, itemsScroll, loading)
     }
 
     // ── Process user photo (camera/upload) — uses analysis only ──
