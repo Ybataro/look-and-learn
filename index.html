@@ -462,7 +462,19 @@
       font-size: 11px; color: #94a3b8; margin-top: 1px;
     }
     .scene-label-v2 .slv2-zh {
-      font-size: 12px; color: #64748b; margin-top: 2px;
+      font-size: 12px; color: #e94560; font-weight: 600; margin-top: 2px;
+    }
+    /* Bookmark button on label */
+    .scene-label-v2 .slv2-bookmark {
+      margin-top: 3px; padding: 2px 8px; border-radius: 8px;
+      border: 1px solid #e2e8f0; background: #f8fafc;
+      font-size: 11px; color: #64748b; cursor: pointer;
+      transition: all 0.2s; line-height: 1;
+    }
+    .scene-label-v2 .slv2-bookmark:active { transform: scale(0.95); }
+    .scene-label-v2 .slv2-bookmark.saved {
+      background: #dcfce7; border-color: #86efac; color: #16a34a;
+      pointer-events: none;
     }
     /* Connector dot on the item */
     .scene-dot {
@@ -1499,7 +1511,7 @@
     // ── SceneCache (localStorage, LRU, 4MB budget) ──
     const SceneCache = {
       KEY_PREFIX: 'look_learn_scene_',
-      MAX_SIZE: 4 * 1024 * 1024,
+      MAX_SIZE: 20 * 1024 * 1024, // 20MB — fits ~10-15 scenes
       get(sceneKey) {
         try {
           const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
@@ -1812,7 +1824,6 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
         img.src = 'data:' + cached.mimeType + ';base64,' + cached.image
         const doShow = () => {
           renderSceneLabelsV2(cached.items, img, labelsEl, itemsScroll)
-          WordStore.addBatch(cached.items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', cat.key)
         }
         if (img.complete && img.naturalWidth) doShow()
         else img.onload = doShow
@@ -1858,7 +1869,6 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
 
         const doShow = () => {
           renderSceneLabelsV2(items, img, labelsEl, itemsScroll)
-          WordStore.addBatch(items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', cat.key)
         }
         if (img.complete && img.naturalWidth) doShow()
         else img.onload = doShow
@@ -1925,7 +1935,6 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
           setTimeout(() => { loading.classList.add('hidden') }, 300)
           const doShow = () => {
             renderSceneLabelsV2(items, img, labelsEl, itemsScroll)
-            WordStore.addBatch(items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', 'custom')
           }
           if (img.complete && img.naturalWidth) doShow()
           else img.onload = doShow
@@ -1942,7 +1951,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
 
     // ── Label v2 Layout Algorithm (anti-overlap) ──
     function layoutLabels(items, containerW, containerH, imgRect, cRect) {
-      const LW = 150, LH = 72, PAD = 8
+      const LW = 150, LH = 90, PAD = 8
       const offX = imgRect.left - cRect.left
       const offY = imgRect.top - cRect.top
       const positions = items.map(item => {
@@ -2033,9 +2042,21 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
           label.style.top = pos.ly + 'px'
           label.style.animationDelay = (idx * 0.06) + 's'
           label.dataset.idx = idx
+          const alreadySaved = WordStore.getAll().some(w => w.en.toLowerCase().trim() === item.label.toLowerCase().trim())
           label.innerHTML = `<div class="slv2-en">${item.label}</div>
+            <div class="slv2-zh">${item.label_zh || ''}</div>
             ${item.phonetic ? '<div class="slv2-phonetic">' + item.phonetic + '</div>' : ''}
-            <div class="slv2-zh">${item.label_zh || ''}</div>`
+            <button class="slv2-bookmark ${alreadySaved ? 'saved' : ''}" data-word-idx="${idx}">${alreadySaved ? '✅ 已記' : '📌 記住'}</button>`
+
+          // Bookmark click
+          const bmBtn = label.querySelector('.slv2-bookmark')
+          bmBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            if (bmBtn.classList.contains('saved')) return
+            WordStore.add({ en: item.label, zh: item.label_zh || '', phonetic: item.phonetic || '', source: 'scene' })
+            bmBtn.classList.add('saved')
+            bmBtn.textContent = '✅ 已記'
+          })
 
           label.addEventListener('click', () => {
             stopAutoNarration()
