@@ -8,13 +8,18 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'API key not configured' })
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${API_KEY}`
+  // Support _model parameter: chat uses flash, identify uses flash-lite
+  const body = { ...req.body }
+  const model = body._model || 'gemini-2.5-flash-lite'
+  delete body._model
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`
 
   try {
     const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify(body),
     })
 
     const data = await resp.json()
