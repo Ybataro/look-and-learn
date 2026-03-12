@@ -441,14 +441,17 @@
     /* Scene Label v2 — large cards with connector lines */
     .scene-label-v2 {
       position: absolute; pointer-events: auto; cursor: pointer;
-      width: 150px; padding: 8px 10px;
+      width: 150px; padding: 6px 8px;
       background: rgba(255,255,255,0.95);
       border-radius: 12px;
       box-shadow: 0 2px 12px rgba(0,0,0,0.15);
       z-index: 56;
       animation: labelFadeIn 0.4s ease-out both;
       transition: transform 0.3s, box-shadow 0.3s;
-      text-align: center;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .scene-label-v2 .slv2-text {
+      flex: 1; min-width: 0; text-align: center;
     }
     @keyframes labelFadeIn {
       from { opacity: 0; transform: translateY(8px) scale(0.9); }
@@ -464,12 +467,13 @@
     .scene-label-v2 .slv2-zh {
       font-size: 12px; color: #e94560; font-weight: 600; margin-top: 2px;
     }
-    /* Bookmark button on label */
+    /* Bookmark button on label — right side vertical */
     .scene-label-v2 .slv2-bookmark {
-      margin-top: 3px; padding: 2px 8px; border-radius: 8px;
+      flex-shrink: 0; width: 28px; padding: 4px 0; border-radius: 8px;
       border: 1px solid #e2e8f0; background: #f8fafc;
-      font-size: 11px; color: #64748b; cursor: pointer;
-      transition: all 0.2s; line-height: 1;
+      font-size: 10px; color: #64748b; cursor: pointer;
+      transition: all 0.2s; line-height: 1.2;
+      text-align: center; writing-mode: vertical-rl; letter-spacing: 1px;
     }
     .scene-label-v2 .slv2-bookmark:active { transform: scale(0.95); }
     .scene-label-v2 .slv2-bookmark.saved {
@@ -1772,6 +1776,8 @@ Scene-specific items to include: ${cat.sampleItems.join(', ')}`
       const prompt = `Analyze this image and identify ALL visible objects/items.
 Return a JSON array (no markdown):
 [{"label":"English name","label_zh":"繁體中文名稱","phonetic":"/KK phonetic/","box_2d":[y_min,x_min,y_max,x_max]}]
+IMPORTANT: "label_zh" MUST be the Traditional Chinese (繁體中文) translation for EVERY item. Never leave it empty.
+Example: {"label":"Blackboard","label_zh":"黑板","phonetic":"/blækbɔrd/","box_2d":[100,200,400,600]}
 box_2d coordinates are 0-1000 normalized. Include 8-15 objects.
 Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object").`
 
@@ -1964,7 +1970,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
 
     // ── Label v2 Layout Algorithm (anti-overlap) ──
     function layoutLabels(items, containerW, containerH, imgRect, cRect) {
-      const LW = 150, LH = 90, PAD = 8
+      const LW = 150, LH = 70, PAD = 8
       const offX = imgRect.left - cRect.left
       const offY = imgRect.top - cRect.top
       const positions = items.map(item => {
@@ -2056,10 +2062,12 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
           label.style.animationDelay = (idx * 0.06) + 's'
           label.dataset.idx = idx
           const alreadySaved = WordStore.getAll().some(w => w.en.toLowerCase().trim() === item.label.toLowerCase().trim())
-          label.innerHTML = `<div class="slv2-en">${item.label}</div>
-            <div class="slv2-zh">${item.label_zh || ''}</div>
-            ${item.phonetic ? '<div class="slv2-phonetic">' + item.phonetic + '</div>' : ''}
-            <button class="slv2-bookmark ${alreadySaved ? 'saved' : ''}" data-word-idx="${idx}">${alreadySaved ? '✅ 已記' : '📌 記住'}</button>`
+          label.innerHTML = `<div class="slv2-text">
+              <div class="slv2-en">${item.label}</div>
+              <div class="slv2-zh">${item.label_zh || ''}</div>
+              ${item.phonetic ? '<div class="slv2-phonetic">' + item.phonetic + '</div>' : ''}
+            </div>
+            <button class="slv2-bookmark ${alreadySaved ? 'saved' : ''}" data-word-idx="${idx}">${alreadySaved ? '✅已記' : '📌記住'}</button>`
 
           // Bookmark click
           const bmBtn = label.querySelector('.slv2-bookmark')
@@ -2068,7 +2076,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
             if (bmBtn.classList.contains('saved')) return
             WordStore.add({ en: item.label, zh: item.label_zh || '', phonetic: item.phonetic || '', source: 'scene' })
             bmBtn.classList.add('saved')
-            bmBtn.textContent = '✅ 已記'
+            bmBtn.textContent = '✅已記'
           })
 
           label.addEventListener('click', () => {
@@ -2115,7 +2123,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       const chips = itemsScroll.querySelectorAll('.scene-item-chip')
       for (let i = 0; i < items.length; i++) {
         if (narrationAbort) break
-        // Highlight
+        // Move highlight to current (remove from others, keep on current)
         labels.forEach(l => l.classList.remove('narrating', 'active'))
         chips.forEach(c => c.classList.remove('active'))
         if (labels[i]) labels[i].classList.add('narrating')
@@ -2123,10 +2131,13 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
         // Speak
         await speakAndWait(items[i].label)
         if (narrationAbort) break
-        // Unhighlight
-        if (labels[i]) labels[i].classList.remove('narrating')
-        if (chips[i]) chips[i].classList.remove('active')
-        await sleep(400)
+        // Keep highlight on, just pause before moving to next
+        await sleep(300)
+      }
+      // After all done, remove narrating from all
+      if (!narrationAbort) {
+        labels.forEach(l => l.classList.remove('narrating'))
+        chips.forEach(c => c.classList.remove('active'))
       }
     }
     function stopAutoNarration() {
