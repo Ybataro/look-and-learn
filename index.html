@@ -5,75 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Look & Learn - AR English</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { "primary": "#0d59f2" },
+          fontFamily: { "display": ["Inter", "sans-serif"] },
+        },
+      },
+    }
+  </script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; touch-action: none; }
+    body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; overflow: hidden; touch-action: none; }
+
+    .ios-blur { backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .ios-shadow { box-shadow: 0 4px 24px -1px rgba(0,0,0,0.06); }
+
+    /* ========== HOME SECTION ========== */
+    #home-section {
+      position: fixed; inset: 0; z-index: 5;
+      display: flex; flex-direction: column;
+      background: #f5f6f8;
+      overflow: hidden;
+    }
+    #home-section.hidden-section { display: none; }
+    .liquid-glass {
+      background: rgba(13, 89, 242, 0.85);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px 0 rgba(13, 89, 242, 0.3);
+      position: relative; overflow: hidden;
+    }
+    .liquid-glass::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 50%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+      pointer-events: none;
+    }
+    .card-shadow { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05), 0 8px 10px -6px rgba(0,0,0,0.05); }
+
+    /* ========== CAMERA SECTION ========== */
+    #camera-section {
+      position: fixed; inset: 0; z-index: 5;
+      display: none; background: #000;
+    }
+    #camera-section.active { display: block; }
 
     #camera { width: 100vw; height: 100vh; object-fit: cover; }
     #overlay {
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       pointer-events: none; z-index: 10;
     }
-
     #capture-canvas { display: none; }
 
-    /* Loading screen */
-    #loading {
-      position: fixed; inset: 0; z-index: 50;
+    /* Camera loading */
+    #camera-loading {
+      position: absolute; inset: 0;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: white; transition: opacity 0.5s;
+      color: white; z-index: 15; transition: opacity 0.5s;
     }
-    #loading.hidden { opacity: 0; pointer-events: none; }
+    #camera-loading.hidden { opacity: 0; pointer-events: none; }
 
     .pulse-ring {
-      width: 80px; height: 80px; border-radius: 50%;
-      border: 3px solid rgba(255,255,255,0.2);
-      border-top-color: #e94560;
+      width: 60px; height: 60px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.2); border-top-color: #e94560;
       animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Tap ripple effect */
     .tap-ripple {
       position: absolute; pointer-events: none;
       width: 40px; height: 40px; border-radius: 50%;
       border: 2px solid rgba(255,255,255,0.8);
       transform: translate(-50%, -50%);
-      animation: ripple 1s ease-out forwards;
-      z-index: 15;
+      animation: ripple 1s ease-out forwards; z-index: 15;
     }
     @keyframes ripple {
       0% { width: 20px; height: 20px; opacity: 1; }
       100% { width: 80px; height: 80px; opacity: 0; }
     }
 
-    /* Label tag */
     .label-tag {
       position: absolute; pointer-events: auto; cursor: pointer;
       display: flex; flex-direction: column; align-items: center;
       transform: translate(-50%, -100%);
-      z-index: 20;
-      animation: fadeInUp 0.3s ease-out;
+      z-index: 20; animation: fadeInUp 0.3s ease-out;
     }
     @keyframes fadeInUp {
       from { opacity: 0; transform: translate(-50%, -80%); }
       to { opacity: 1; transform: translate(-50%, -100%); }
     }
-
     .label-en {
       background: rgba(233, 69, 96, 0.92);
       color: white; font-weight: 700; font-size: 18px;
       padding: 8px 18px; border-radius: 14px;
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
       box-shadow: 0 4px 15px rgba(233,69,96,0.4);
-      text-transform: capitalize;
-      white-space: nowrap;
-      pointer-events: auto;
+      text-transform: capitalize; white-space: nowrap; pointer-events: auto;
     }
     .label-en:active { transform: scale(0.95); }
-
     .label-zh {
       background: rgba(0,0,0,0.7);
       color: #f0f0f0; font-size: 13px; font-weight: 500;
@@ -81,97 +115,38 @@
       margin-top: 4px; white-space: nowrap;
       backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     }
-
     .label-arrow {
       width: 0; height: 0;
-      border-left: 6px solid transparent;
-      border-right: 6px solid transparent;
+      border-left: 6px solid transparent; border-right: 6px solid transparent;
       border-top: 6px solid rgba(0,0,0,0.7);
     }
-
-    /* Speaking animation */
     .speaking { animation: pulse 0.3s ease-in-out 3; }
     @keyframes pulse {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.1); box-shadow: 0 4px 20px rgba(233,69,96,0.6); }
     }
-
-    /* Detection box */
     .detect-box {
       position: absolute; pointer-events: none;
-      border: 2.5px solid rgba(233, 69, 96, 0.7);
-      border-radius: 10px;
-      box-shadow: 0 0 12px rgba(233,69,96,0.3);
-      animation: boxAppear 0.3s ease-out;
+      border: 2.5px solid rgba(233,69,96,0.7); border-radius: 10px;
+      box-shadow: 0 0 12px rgba(233,69,96,0.3); animation: boxAppear 0.3s ease-out;
     }
     @keyframes boxAppear {
       from { opacity: 0; transform: scale(0.9); }
       to { opacity: 1; transform: scale(1); }
     }
+    .label-tag.leaving, .detect-box.leaving { opacity: 0; transition: opacity 0.3s ease-out; }
 
-    /* Fade out */
-    .label-tag.leaving, .detect-box.leaving {
-      opacity: 0;
-      transition: opacity 0.3s ease-out;
-    }
-
-    /* In-app browser warning overlay */
-    #inapp-overlay {
-      position: fixed; inset: 0; z-index: 100;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-      color: white; padding: 32px 24px; text-align: center;
-    }
-    #inapp-overlay .icon-circle {
-      width: 80px; height: 80px; border-radius: 50%;
-      background: rgba(233, 69, 96, 0.15); border: 2px solid rgba(233, 69, 96, 0.4);
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 24px; font-size: 36px;
-    }
-    #inapp-overlay h2 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
-    #inapp-overlay .sub { color: rgba(255,255,255,0.6); font-size: 14px; margin-bottom: 28px; line-height: 1.6; }
-    #inapp-overlay .steps {
-      background: rgba(255,255,255,0.08); border-radius: 16px;
-      padding: 20px 24px; width: 100%; max-width: 340px;
-      text-align: left; margin-bottom: 24px;
-    }
-    #inapp-overlay .step {
-      display: flex; align-items: flex-start; gap: 12px;
-      margin-bottom: 14px; font-size: 14px; line-height: 1.5;
-    }
-    #inapp-overlay .step:last-child { margin-bottom: 0; }
-    #inapp-overlay .step-num {
-      flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%;
-      background: #e94560; color: white; font-size: 13px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #inapp-overlay .btn-open {
-      background: #e94560; color: white; border: none; border-radius: 12px;
-      padding: 14px 32px; font-size: 16px; font-weight: 700;
-      cursor: pointer; width: 100%; max-width: 340px;
-      margin-bottom: 12px;
-    }
-    #inapp-overlay .btn-open:active { opacity: 0.8; }
-    #inapp-overlay .btn-copy {
-      background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px; padding: 12px 32px; font-size: 14px; font-weight: 600;
-      cursor: pointer; width: 100%; max-width: 340px;
-    }
-    #inapp-overlay .btn-copy:active { opacity: 0.8; }
-    #inapp-overlay .copied { color: #4ade80; font-size: 13px; margin-top: 8px; display: none; }
-
-    /* Tips toggle */
+    /* Tips */
     #tips-btn {
       position: fixed; top: max(env(safe-area-inset-top), 12px); left: 16px; z-index: 35;
       width: 32px; height: 32px; border-radius: 50%;
       background: rgba(255,255,255,0.18);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border: none; color: white; font-size: 16px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
+      display: none; align-items: center; justify-content: center; cursor: pointer;
     }
+    #tips-btn.show { display: flex; }
     #tips-btn:active { opacity: 0.7; }
-
     #tips-panel {
       position: fixed;
       top: calc(max(env(safe-area-inset-top), 12px) + 40px);
@@ -179,81 +154,752 @@
       background: rgba(0,0,0,0.75);
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border-radius: 12px; padding: 12px 14px;
-      color: white; font-size: 12px; line-height: 1.7;
-      max-width: 220px;
-      opacity: 0; pointer-events: none;
-      transform: translateY(-4px);
+      color: white; font-size: 12px; line-height: 1.7; max-width: 220px;
+      opacity: 0; pointer-events: none; transform: translateY(-4px);
       transition: opacity 0.25s, transform 0.25s;
     }
-    #tips-panel.show {
-      opacity: 1; pointer-events: auto; transform: translateY(0);
-    }
+    #tips-panel.show { opacity: 1; pointer-events: auto; transform: translateY(0); }
     #tips-panel .tip-line { display: flex; gap: 6px; align-items: flex-start; }
-    #tips-panel .tip-dot {
-      flex-shrink: 0; width: 4px; height: 4px; border-radius: 50%;
-      background: #e94560; margin-top: 7px;
-    }
+    #tips-panel .tip-dot { flex-shrink: 0; width: 4px; height: 4px; border-radius: 50%; background: #e94560; margin-top: 7px; }
     #tips-panel .tip-zh { color: rgba(255,255,255,0.95); }
     #tips-panel .tip-en { color: rgba(255,255,255,0.5); font-size: 11px; }
 
-    /* Top status bar */
+    /* Status bar */
     #status-bar {
       position: fixed; top: 0; left: 0; right: 0; z-index: 30;
       padding: 12px 16px; padding-top: max(env(safe-area-inset-top), 12px);
-      display: flex; justify-content: center; align-items: center;
+      display: none; justify-content: center; align-items: center;
       background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 100%);
     }
-
+    #status-bar.show { display: flex; }
     #status-text {
       background: rgba(255,255,255,0.15);
       backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       color: white; font-size: 13px; font-weight: 600;
       padding: 6px 14px; border-radius: 20px;
     }
-
-    /* Loading spinner for detecting */
     .detecting-spinner {
-      display: inline-block;
-      width: 12px; height: 12px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: white;
-      animation: spin 0.6s linear infinite;
-      margin-right: 6px; vertical-align: middle;
+      display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3); border-top-color: white;
+      animation: spin 0.6s linear infinite; margin-right: 6px; vertical-align: middle;
     }
+
+    /* ========== TAB BAR (floating pill) ========== */
+    #tab-bar-wrapper {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      display: flex; justify-content: center;
+      padding: 0 24px 12px;
+      padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+      pointer-events: none;
+    }
+    #tab-bar {
+      width: 100%; max-width: 400px;
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 4px 24px -1px rgba(0,0,0,0.1);
+      border: 1px solid rgba(0,0,0,0.06);
+      border-radius: 9999px;
+      display: flex; justify-content: space-around; align-items: center;
+      padding: 6px 8px;
+      pointer-events: auto;
+    }
+    /* Dark variant for camera/chat */
+    #tab-bar.dark-variant {
+      background: rgba(15,15,25,0.92);
+      border-color: rgba(255,255,255,0.08);
+    }
+    #tab-bar.dark-variant .tab-item { color: rgba(255,255,255,0.4); }
+    #tab-bar.dark-variant .tab-item.active { color: #e94560; }
+
+    .tab-item {
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      padding: 6px 8px; flex: 1;
+      color: #94a3b8; font-size: 9px; font-weight: 600;
+      cursor: pointer; transition: color 0.2s; border: none; background: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-item.active { color: #0d59f2; }
+    .tab-item .material-symbols-outlined { font-size: 22px; }
+
+    /* ========== CHAT SECTION ========== */
+    #chat-section {
+      position: fixed; inset: 0; z-index: 5;
+      display: none; flex-direction: column;
+      background: linear-gradient(180deg, #0f1923 0%, #1a1a2e 100%);
+    }
+    #chat-section.active { display: flex; }
+
+    #chat-header {
+      flex-shrink: 0;
+      padding-top: max(env(safe-area-inset-top), 8px);
+      background: rgba(15, 15, 25, 0.9);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    #mode-selector {
+      display: flex; gap: 8px; padding: 8px 16px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    #mode-selector::-webkit-scrollbar { display: none; }
+    .mode-btn {
+      flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: 20px;
+      border: 1.5px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mode-btn.active { border-color: #e94560; background: rgba(233,69,96,0.15); color: #fff; }
+    .mode-btn .mode-emoji { font-size: 16px; }
+
+    #scenario-row { display: flex; align-items: center; gap: 8px; padding: 4px 16px 8px; }
+    #scenario-toggle {
+      display: flex; align-items: center; gap: 4px;
+      padding: 4px 12px; border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 500;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    #scenario-toggle .arrow { font-size: 10px; transition: transform 0.2s; }
+    #scenario-toggle.open .arrow { transform: rotate(180deg); }
+
+    #scenario-panel {
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      padding: 0 16px; background: rgba(0,0,0,0.2);
+    }
+    #scenario-panel.open { max-height: 200px; }
+    #scenario-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+    .scenario-chip {
+      padding: 6px 12px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: rgba(255,255,255,0.6); font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+    }
+    .scenario-chip.active { border-color: #e94560; background: rgba(233,69,96,0.15); color: #fff; }
+
+    #chat-messages {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 16px 12px 8px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+
+    .msg-row { display: flex; gap: 8px; max-width: 88%; animation: msgIn 0.25s ease-out; }
+    .msg-row.msg-user { align-self: flex-end; flex-direction: row-reverse; }
+    .msg-row.msg-ai { align-self: flex-start; }
+    .msg-row.msg-correction { align-self: flex-start; }
+    @keyframes msgIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .msg-avatar {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-top: 2px;
+    }
+    .msg-ai .msg-avatar { background: rgba(233,69,96,0.15); }
+    .msg-correction .msg-avatar { background: rgba(250,204,21,0.15); }
+    .msg-bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.6; word-break: break-word; }
+    .msg-ai .msg-bubble { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.9); border-bottom-left-radius: 4px; }
+    .msg-user .msg-bubble { background: #e94560; color: white; border-bottom-right-radius: 4px; }
+    .msg-correction .msg-bubble {
+      background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.3);
+      color: rgba(255,255,255,0.9); border-bottom-left-radius: 4px; font-size: 13px;
+    }
+    .msg-correction .msg-bubble .wrong { text-decoration: line-through; color: rgba(255,100,100,0.8); }
+    .msg-correction .msg-bubble .correct { color: #4ade80; font-weight: 600; }
+    .msg-correction .msg-bubble .explanation { display: block; margin-top: 4px; color: rgba(255,255,255,0.5); font-size: 12px; }
+    .msg-speak-btn {
+      flex-shrink: 0; align-self: flex-end; width: 28px; height: 28px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5);
+      font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent; transition: background 0.2s;
+    }
+    .msg-speak-btn:active { background: rgba(233,69,96,0.3); }
+    .typing-indicator { display: flex; gap: 4px; padding: 12px 16px; }
+    .typing-indicator span {
+      width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3);
+      animation: typingBounce 1.2s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes typingBounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-6px); }
+    }
+
+    #chat-input-area {
+      flex-shrink: 0; display: flex; align-items: flex-end; gap: 8px;
+      padding: 8px 12px;
+      padding-bottom: calc(72px + env(safe-area-inset-bottom) + 8px);
+      background: rgba(15, 15, 25, 0.9);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    #btn-new-chat {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5);
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #btn-new-chat:active { background: rgba(255,255,255,0.15); }
+    #chat-input-wrapper {
+      flex: 1; display: flex; align-items: flex-end;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px; padding: 4px 4px 4px 14px; min-height: 36px;
+    }
+    #chat-input {
+      flex: 1; border: none; background: none; outline: none;
+      color: white; font-size: 14px; line-height: 1.4;
+      resize: none; max-height: 80px; font-family: inherit;
+    }
+    #chat-input::placeholder { color: rgba(255,255,255,0.3); }
+    #btn-mic {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5);
+      font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent; transition: all 0.2s;
+    }
+    #btn-mic.recording { background: #e94560; color: white; animation: micPulse 1s ease-in-out infinite; }
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(233,69,96,0.4); }
+      50% { box-shadow: 0 0 0 8px rgba(233,69,96,0); }
+    }
+    #btn-send {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%;
+      border: none; background: #e94560; color: white; font-size: 15px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      -webkit-tap-highlight-color: transparent; opacity: 0.5; transition: opacity 0.2s;
+    }
+    #btn-send.has-text { opacity: 1; }
+    #btn-send:active { opacity: 0.7; }
+    #stt-banner {
+      display: none; padding: 6px 16px;
+      background: rgba(250,204,21,0.1); border-bottom: 1px solid rgba(250,204,21,0.2);
+      color: rgba(250,204,21,0.8); font-size: 12px; text-align: center;
+    }
+
+    /* ========== SCENES SECTION ========== */
+    #scenes-section {
+      position: fixed; inset: 0; z-index: 5;
+      display: none; flex-direction: column;
+      background: #f5f6f8;
+      overflow: hidden;
+    }
+    #scenes-section.active { display: flex; }
+    .scene-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+      padding: 16px; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding-bottom: 8px;
+      align-content: start;
+    }
+    .scene-card {
+      background: white; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); cursor: pointer;
+      transition: transform 0.2s; border: 1px solid rgba(0,0,0,0.04);
+    }
+    .scene-card:active { transform: scale(0.97); }
+    .scene-card-icon {
+      height: 80px; display: flex; align-items: center; justify-content: center;
+      font-size: 40px; background: linear-gradient(135deg, #f0f4ff 0%, #e8eeff 100%);
+    }
+    .scene-card-body { padding: 10px 12px; }
+    .scene-card-body h3 { font-size: 14px; font-weight: 700; color: #1e293b; }
+    .scene-card-body p { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .scene-upload-card .scene-card-icon {
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      flex-direction: column; gap: 4px;
+    }
+    .scene-upload-card .scene-card-icon span { font-size: 14px; color: #92400e; font-weight: 600; }
+
+    /* Scene Viewer */
+    #scene-viewer {
+      position: fixed; inset: 0; z-index: 50;
+      display: none; flex-direction: column; background: #000;
+    }
+    #scene-viewer.active { display: flex; }
+    #scene-viewer-header {
+      position: absolute; top: 0; left: 0; right: 0; z-index: 55;
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; padding-top: max(env(safe-area-inset-top), 12px);
+      background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, transparent 100%);
+    }
+    #scene-back-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.15); color: white; font-size: 20px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    }
+    #scene-title { color: white; font-size: 16px; font-weight: 700; }
+    #scene-image-container {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    #scene-image {
+      max-width: 100%; max-height: 100%; object-fit: contain;
+    }
+    /* Scene Label v2 — large cards with connector lines */
+    .scene-label-v2 {
+      position: absolute; pointer-events: auto; cursor: pointer;
+      width: 150px; padding: 8px 10px;
+      background: rgba(255,255,255,0.95);
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      z-index: 56;
+      animation: labelFadeIn 0.4s ease-out both;
+      transition: transform 0.3s, box-shadow 0.3s;
+      text-align: center;
+    }
+    @keyframes labelFadeIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.9); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .scene-label-v2 .slv2-en {
+      font-size: 14px; font-weight: 700; color: #1e293b;
+      line-height: 1.3; text-transform: capitalize;
+    }
+    .scene-label-v2 .slv2-phonetic {
+      font-size: 11px; color: #94a3b8; margin-top: 1px;
+    }
+    .scene-label-v2 .slv2-zh {
+      font-size: 12px; color: #64748b; margin-top: 2px;
+    }
+    /* Connector dot on the item */
+    .scene-dot {
+      position: absolute; width: 10px; height: 10px; border-radius: 50%;
+      background: #e94560; border: 2px solid white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transform: translate(-50%, -50%);
+      z-index: 55; pointer-events: none;
+      animation: labelFadeIn 0.3s ease-out both;
+    }
+    /* Connector line (SVG drawn dynamically) */
+    .scene-connector {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 54;
+    }
+    .scene-connector line {
+      stroke: #e94560; stroke-width: 1.5; stroke-dasharray: 4 3;
+      opacity: 0.6;
+    }
+    /* Narration highlight */
+    .scene-label-v2.narrating {
+      transform: scale(1.12);
+      box-shadow: 0 0 0 3px #FFD700, 0 4px 16px rgba(0,0,0,0.25);
+      z-index: 100;
+    }
+    .scene-label-v2.active {
+      box-shadow: 0 0 0 2px #0d59f2, 0 4px 16px rgba(13,89,242,0.25);
+    }
+
+    /* Scene card gradient backgrounds */
+    .scene-card-icon.has-gradient {
+      background: var(--card-gradient) !important;
+    }
+    .scene-card-icon .scene-thumb {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 0;
+    }
+    .scene-card .cached-badge {
+      position: absolute; top: 6px; right: 6px;
+      background: rgba(16,185,129,0.9); color: white;
+      font-size: 9px; font-weight: 700; padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    /* Scene loading progress */
+    #scene-loading .progress-container {
+      width: 220px; margin-top: 16px;
+    }
+    #scene-loading .progress-step {
+      font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 8px;
+      text-align: center;
+    }
+    #scene-loading .progress-bar-bg {
+      width: 100%; height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.15); overflow: hidden;
+    }
+    #scene-loading .progress-bar-fill {
+      height: 100%; border-radius: 3px;
+      background: linear-gradient(90deg, #e94560, #f59e0b);
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    #scene-loading .progress-pct {
+      font-size: 12px; color: rgba(255,255,255,0.5);
+      text-align: center; margin-top: 6px;
+    }
+
+    /* Regenerate button */
+    #scene-regen-btn {
+      width: 36px; height: 36px; border-radius: 50%; border: none;
+      background: rgba(255,255,255,0.15); color: white; font-size: 18px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      margin-left: auto;
+    }
+    #scene-regen-btn:active { opacity: 0.7; }
+
+    /* Bottom camera button in scenes grid */
+    .scene-bottom-actions {
+      padding: 8px 16px 16px; display: flex; gap: 8px;
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+    .scene-action-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px; border-radius: 12px; border: 1.5px dashed #cbd5e1;
+      background: white; color: #64748b; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .scene-action-btn:active { transform: scale(0.97); border-color: #94a3b8; }
+    #scene-bottom-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 55;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      padding: 8px 0;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    }
+    #scene-items-scroll {
+      display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch;
+      padding: 4px 12px; scrollbar-width: none;
+    }
+    #scene-items-scroll::-webkit-scrollbar { display: none; }
+    .scene-item-chip {
+      flex-shrink: 0; padding: 6px 12px; border-radius: 12px;
+      background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8);
+      font-size: 12px; font-weight: 500; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .scene-item-chip.active {
+      background: rgba(233,69,96,0.3); border-color: #e94560;
+      color: white;
+    }
+    #scene-loading {
+      position: absolute; inset: 0; z-index: 57;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.7); color: white;
+    }
+    #scene-loading.hidden { display: none; }
+
+    /* ========== WORDS SECTION ========== */
+    #words-section {
+      position: fixed; inset: 0; z-index: 5;
+      display: none; flex-direction: column;
+      background: #f5f6f8;
+      overflow: hidden;
+    }
+    #words-section.active { display: flex; }
+    #words-header {
+      flex-shrink: 0;
+      padding-top: max(env(safe-area-inset-top), 12px);
+      background: white;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    #words-header h2 {
+      font-size: 20px; font-weight: 800; color: #1e293b;
+      padding: 12px 16px 8px;
+    }
+    #words-stats {
+      padding: 0 16px 8px; font-size: 12px; color: #64748b;
+      display: flex; gap: 12px;
+    }
+    #words-tab-switch {
+      display: flex; margin: 0 16px 8px; background: #f1f5f9;
+      border-radius: 10px; padding: 3px; gap: 2px;
+    }
+    .words-tab-btn {
+      flex: 1; padding: 8px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: transparent; color: #64748b;
+      transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+    }
+    .words-tab-btn.active {
+      background: white; color: #1e293b;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #words-search {
+      margin: 0 16px 8px; padding: 8px 12px;
+      border: 1px solid #e2e8f0; border-radius: 10px;
+      font-size: 14px; background: white; outline: none;
+      width: calc(100% - 32px);
+    }
+    #words-search:focus { border-color: #0d59f2; }
+    #words-list {
+      flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      padding: 0 16px 16px;
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+    .words-group-label {
+      font-size: 12px; font-weight: 700; color: #94a3b8;
+      text-transform: uppercase; padding: 12px 0 6px;
+    }
+    .word-card {
+      background: white; border-radius: 12px; padding: 12px 14px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      border: 1px solid rgba(0,0,0,0.04);
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: transform 0.15s;
+      position: relative; overflow: hidden;
+    }
+    .word-card:active { transform: scale(0.98); }
+    .word-card-info { flex: 1; min-width: 0; }
+    .word-card-en { font-size: 16px; font-weight: 700; color: #1e293b; }
+    .word-card-zh { font-size: 13px; color: #64748b; margin-top: 1px; }
+    .word-card-phonetic { font-size: 11px; color: #94a3b8; }
+    .word-card-source {
+      font-size: 10px; padding: 2px 6px; border-radius: 6px;
+      font-weight: 600;
+    }
+    .word-card-source.camera { background: #dbeafe; color: #2563eb; }
+    .word-card-source.scene { background: #fce7f3; color: #db2777; }
+    .word-card-actions {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .word-action-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: none;
+      background: #f1f5f9; color: #64748b; font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    .word-action-btn:active { background: #e2e8f0; }
+    .word-delete-btn {
+      width: 32px; height: 32px; border-radius: 50%; border: none;
+      background: #fee2e2; color: #ef4444; font-size: 14px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    #words-empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #94a3b8; text-align: center; padding: 32px;
+    }
+    #words-empty .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    #words-empty h3 { font-size: 16px; font-weight: 700; color: #64748b; }
+    #words-empty p { font-size: 13px; margin-top: 6px; }
+
+    /* ========== FLASHCARD ========== */
+    #flashcard-container {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 16px;
+      padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+    .flashcard-wrapper {
+      width: 100%; max-width: 320px; height: 220px;
+      perspective: 1000px; cursor: pointer;
+    }
+    .flashcard-inner {
+      width: 100%; height: 100%; position: relative;
+      transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+      transform-style: preserve-3d;
+    }
+    .flashcard-inner.flipped { transform: rotateY(180deg); }
+    .flashcard-front, .flashcard-back {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      border-radius: 20px; padding: 24px;
+      backface-visibility: hidden; -webkit-backface-visibility: hidden;
+      text-align: center;
+    }
+    .flashcard-front {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .flashcard-front .fc-zh { font-size: 28px; font-weight: 800; }
+    .flashcard-front .fc-hint { font-size: 13px; opacity: 0.7; margin-top: 12px; }
+    .flashcard-back {
+      background: white; transform: rotateY(180deg);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    }
+    .flashcard-back .fc-en { font-size: 26px; font-weight: 800; color: #1e293b; }
+    .flashcard-back .fc-phonetic { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+    .flashcard-back .fc-zh-small { font-size: 14px; color: #64748b; margin-top: 8px; }
+    .flashcard-actions {
+      display: flex; gap: 16px; margin-top: 24px;
+    }
+    .fc-btn {
+      padding: 12px 28px; border-radius: 14px; border: none;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .fc-btn:active { transform: scale(0.95); }
+    .fc-btn-fail { background: #fee2e2; color: #ef4444; }
+    .fc-btn-pass { background: #dcfce7; color: #16a34a; }
+    .flashcard-progress {
+      font-size: 13px; color: #94a3b8; margin-bottom: 16px;
+    }
+
+    /* ========== PRONUNCIATION PANEL ========== */
+    #pronounce-panel {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 60;
+      background: white; border-radius: 20px 20px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+      padding: 20px 24px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #pronounce-panel.active { transform: translateY(0); }
+    #pronounce-panel .pp-close {
+      position: absolute; top: 12px; right: 16px;
+      width: 28px; height: 28px; border-radius: 50%; border: none;
+      background: #f1f5f9; color: #64748b; font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+    }
+    #pronounce-panel .pp-word {
+      font-size: 22px; font-weight: 800; color: #1e293b;
+      text-align: center; margin-bottom: 4px;
+    }
+    #pronounce-panel .pp-prompt {
+      font-size: 13px; color: #64748b; text-align: center;
+      margin-bottom: 16px;
+    }
+    #pp-mic-btn {
+      width: 64px; height: 64px; border-radius: 50%; border: none;
+      background: #e94560; color: white; font-size: 28px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 16px; transition: all 0.2s;
+    }
+    #pp-mic-btn.recording {
+      animation: micPulse 1s ease-in-out infinite;
+      background: #dc2626;
+    }
+    #pp-mic-btn.disabled {
+      background: #cbd5e1; cursor: not-allowed;
+    }
+    #pp-result {
+      text-align: center; min-height: 60px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .pp-grade { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+    .pp-grade.perfect { color: #16a34a; }
+    .pp-grade.close { color: #d97706; }
+    .pp-grade.retry { color: #ef4444; }
+    .pp-spoken { font-size: 13px; color: #64748b; }
+    .pp-actions {
+      display: flex; gap: 12px; justify-content: center; margin-top: 12px;
+    }
+    .pp-action-btn {
+      padding: 8px 20px; border-radius: 10px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .pp-action-btn.again { background: #f1f5f9; color: #64748b; }
+    .pp-action-btn.next { background: #0d59f2; color: white; }
+    #pronounce-overlay {
+      position: fixed; inset: 0; z-index: 59;
+      background: rgba(0,0,0,0.3);
+      display: none;
+    }
+    #pronounce-overlay.active { display: block; }
   </style>
 </head>
-<body>
+<body class="home-active">
 
-  <!-- In-app browser warning (hidden by default, shown via JS) -->
-  <div id="inapp-overlay" style="display:none;">
-    <div class="icon-circle">&#128247;</div>
-    <h2>Need External Browser</h2>
-    <p class="sub">This app requires camera access.<br>In-app browsers (LINE, Facebook, Instagram) don't support camera.</p>
-    <div class="steps" id="inapp-steps"></div>
-    <button class="btn-open" id="btn-open-browser" onclick="openExternal()">Open in Browser</button>
-    <button class="btn-copy" onclick="copyUrl()">Copy URL</button>
-    <div class="copied" id="copied-msg">Copied!</div>
+  <!-- ========== HOME SECTION ========== -->
+  <div id="home-section">
+    <div class="relative flex h-full w-full flex-col max-w-md mx-auto bg-white">
+      <!-- Header -->
+      <header class="flex items-center justify-between px-6 pt-8 pb-4" style="padding-top:max(env(safe-area-inset-top),32px)">
+        <div class="flex items-center gap-2">
+          <div class="bg-primary/10 p-2 rounded-xl">
+            <span class="material-symbols-outlined text-primary text-2xl">psychology</span>
+          </div>
+          <h2 class="text-slate-900 text-lg font-bold tracking-tight">Look & Learn</h2>
+        </div>
+      </header>
+      <!-- Greeting -->
+      <div class="px-6 pt-2 pb-4">
+        <h1 class="text-slate-900 text-3xl font-bold leading-tight" id="home-greeting">
+          Good morning!<br><span class="text-primary">早安！</span>
+        </h1>
+      </div>
+      <!-- 2x2 Grid Cards -->
+      <div class="flex-1 px-6 grid grid-cols-2 gap-3 min-h-0 auto-rows-fr" style="align-content:center;">
+        <!-- Camera Card -->
+        <div class="flex flex-col bg-gradient-to-br from-white to-blue-50/50 rounded-2xl p-3.5 card-shadow border border-blue-100/50 cursor-pointer" data-action="camera">
+          <div class="flex-1 flex flex-col items-center justify-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-blue-50">
+              <span class="material-symbols-outlined text-primary/80 text-2xl">shutter_speed</span>
+            </div>
+            <div>
+              <p class="text-slate-900 font-bold text-sm leading-tight">Camera</p>
+              <p class="text-slate-900 font-medium text-xs">相機辨識</p>
+            </div>
+          </div>
+          <div class="liquid-glass w-full py-2 mt-3 rounded-xl text-white text-xs font-bold flex flex-col items-center justify-center active:scale-[0.98] transition-all">
+            <span>Scan</span>
+            <span class="text-[9px] opacity-90 font-medium">掃描</span>
+          </div>
+        </div>
+        <!-- Scenes Card -->
+        <div class="flex flex-col bg-gradient-to-br from-white to-emerald-50/50 rounded-2xl p-3.5 card-shadow border border-emerald-100/50 cursor-pointer" data-action="scenes">
+          <div class="flex-1 flex flex-col items-center justify-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-emerald-50">
+              <span class="material-symbols-outlined text-emerald-500/80 text-2xl">image_search</span>
+            </div>
+            <div>
+              <p class="text-slate-900 font-bold text-sm leading-tight">Scenes</p>
+              <p class="text-slate-900 font-medium text-xs">情境學習</p>
+            </div>
+          </div>
+          <div class="liquid-glass w-full py-2 mt-3 rounded-xl text-white text-xs font-bold flex flex-col items-center justify-center active:scale-[0.98] transition-all">
+            <span>Explore</span>
+            <span class="text-[9px] opacity-90 font-medium">探索</span>
+          </div>
+        </div>
+        <!-- Words Card -->
+        <div class="flex flex-col bg-gradient-to-br from-white to-amber-50/50 rounded-2xl p-3.5 card-shadow border border-amber-100/50 cursor-pointer" data-action="words">
+          <div class="flex-1 flex flex-col items-center justify-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-amber-50">
+              <span class="material-symbols-outlined text-amber-500/80 text-2xl">menu_book</span>
+            </div>
+            <div>
+              <p class="text-slate-900 font-bold text-sm leading-tight">Words</p>
+              <p class="text-slate-900 font-medium text-xs">單字本</p>
+            </div>
+          </div>
+          <div class="liquid-glass w-full py-2 mt-3 rounded-xl text-white text-xs font-bold flex flex-col items-center justify-center active:scale-[0.98] transition-all">
+            <span>Review</span>
+            <span class="text-[9px] opacity-90 font-medium">複習</span>
+          </div>
+        </div>
+        <!-- AI Tutor Card -->
+        <div class="flex flex-col bg-gradient-to-br from-white to-indigo-50/50 rounded-2xl p-3.5 card-shadow border border-indigo-100/50 cursor-pointer" data-action="chat">
+          <div class="flex-1 flex flex-col items-center justify-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-indigo-50">
+              <span class="material-symbols-outlined text-indigo-500/80 text-2xl">memory</span>
+            </div>
+            <div>
+              <p class="text-slate-900 font-bold text-sm leading-tight">AI Tutor</p>
+              <p class="text-slate-900 font-medium text-xs">龍蝦先生</p>
+            </div>
+          </div>
+          <div class="liquid-glass w-full py-2 mt-3 rounded-xl text-white text-xs font-bold flex flex-col items-center justify-center active:scale-[0.98] transition-all">
+            <span>Chat</span>
+            <span class="text-[9px] opacity-90 font-medium">對話</span>
+          </div>
+        </div>
+      </div>
+      <!-- Bottom spacer for tab bar -->
+      <div class="h-24 flex-shrink-0"></div>
+    </div>
   </div>
 
-  <!-- Loading Screen -->
-  <div id="loading">
-    <div class="pulse-ring mb-6"></div>
-    <h1 class="text-2xl font-bold mb-2">Look & Learn</h1>
-    <p class="text-white/60 text-sm mb-4">AR English Learning</p>
-    <p id="loading-text" class="text-white/80 text-sm">Starting camera...</p>
+  <!-- ========== CAMERA SECTION ========== -->
+  <div id="camera-section">
+    <div id="camera-loading">
+      <div class="pulse-ring" style="margin-bottom:16px"></div>
+      <p style="color:rgba(255,255,255,0.8);font-size:14px" id="camera-loading-text">Starting camera...</p>
+    </div>
+    <video id="camera" autoplay playsinline muted></video>
+    <canvas id="capture-canvas"></canvas>
+    <div id="overlay"></div>
+    <div id="status-bar">
+      <div id="status-text">Tap any object to learn its name</div>
+    </div>
   </div>
 
-  <!-- Camera -->
-  <video id="camera" autoplay playsinline muted></video>
-
-  <!-- Hidden canvas -->
-  <canvas id="capture-canvas"></canvas>
-
-  <!-- Label overlay -->
-  <div id="overlay"></div>
-
-  <!-- Tips button + panel -->
-  <button id="tips-btn" onclick="toggleTips()">?</button>
+  <button id="tips-btn">?</button>
   <div id="tips-panel">
     <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">保持手機穩定，對準物件</span><br><span class="tip-en">Hold steady, aim at object</span></div></div>
     <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">點螢幕上的物件來辨識</span><br><span class="tip-en">Tap on screen to identify</span></div></div>
@@ -261,478 +907,1540 @@
     <div class="tip-line"><div class="tip-dot"></div><div><span class="tip-zh">點空白處關閉標籤</span><br><span class="tip-en">Tap elsewhere to dismiss</span></div></div>
   </div>
 
-  <!-- Status bar -->
-  <div id="status-bar">
-    <div id="status-text">Tap any object to learn its name</div>
+  <!-- ========== CHAT SECTION ========== -->
+  <div id="chat-section">
+    <div id="chat-header">
+      <div id="mode-selector"></div>
+      <div id="scenario-row">
+        <div id="scenario-toggle">
+          <span id="scenario-label">💬 Free Talk</span>
+          <span class="arrow">▼</span>
+        </div>
+      </div>
+    </div>
+    <div id="scenario-panel">
+      <div id="scenario-chips"></div>
+    </div>
+    <div id="stt-banner">Voice input not supported in this browser. Please type your message.</div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-area">
+      <button id="btn-new-chat" title="New Chat">🔄</button>
+      <div id="chat-input-wrapper">
+        <textarea id="chat-input" rows="1" placeholder="Type in English..."></textarea>
+        <button id="btn-mic">🎙️</button>
+      </div>
+      <button id="btn-send">➤</button>
+    </div>
+  </div>
+
+  <!-- ========== SCENES SECTION ========== -->
+  <div id="scenes-section">
+    <div style="flex-shrink:0;padding-top:max(env(safe-area-inset-top),12px);background:white;border-bottom:1px solid rgba(0,0,0,0.06);">
+      <h2 style="font-size:20px;font-weight:800;color:#1e293b;padding:12px 16px 4px;">Scenes 情境學習</h2>
+      <p style="font-size:13px;color:#64748b;padding:0 16px 12px;">Pick a scene to explore vocabulary</p>
+    </div>
+    <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+      <div class="scene-grid" id="scene-grid"></div>
+      <div class="scene-bottom-actions" id="scene-bottom-actions">
+        <div class="scene-action-btn" id="scene-camera-btn">📷 Take Photo 拍照</div>
+        <div class="scene-action-btn" id="scene-upload-btn">🖼️ Upload 上傳</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene Viewer -->
+  <div id="scene-viewer">
+    <div id="scene-viewer-header">
+      <button id="scene-back-btn">←</button>
+      <span id="scene-title"></span>
+      <button id="scene-regen-btn" title="Regenerate">🔄</button>
+    </div>
+    <div id="scene-image-container">
+      <img id="scene-image" alt="Scene">
+      <div id="scene-labels"></div>
+    </div>
+    <div id="scene-bottom-bar">
+      <div id="scene-items-scroll"></div>
+    </div>
+    <div id="scene-loading">
+      <div class="pulse-ring" style="margin-bottom:16px"></div>
+      <div class="progress-container">
+        <div class="progress-step" id="scene-progress-step">Analyzing scene...</div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="scene-progress-fill"></div></div>
+        <div class="progress-pct" id="scene-progress-pct"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== WORDS SECTION ========== -->
+  <div id="words-section">
+    <div id="words-header">
+      <h2>Words 單字本</h2>
+      <div id="words-stats">
+        <span id="words-total">Total: 0</span>
+        <span id="words-today">Today: 0</span>
+      </div>
+      <div id="words-tab-switch">
+        <button class="words-tab-btn active" data-words-tab="collection">📖 Collection</button>
+        <button class="words-tab-btn" data-words-tab="flashcard">🃏 Flashcard</button>
+      </div>
+    </div>
+    <!-- Collection view -->
+    <div id="words-collection-view" style="display:flex;flex-direction:column;flex:1;min-height:0;">
+      <input type="text" id="words-search" placeholder="Search words..." style="flex-shrink:0;">
+      <div id="words-list"></div>
+      <div id="words-empty" style="display:none;">
+        <div class="empty-icon">📖</div>
+        <h3>No words yet</h3>
+        <p>Use Camera or Scenes to learn new words!</p>
+      </div>
+    </div>
+    <!-- Flashcard view -->
+    <div id="flashcard-view" style="display:none;flex:1;min-height:0;">
+      <div id="flashcard-container">
+        <div class="flashcard-progress" id="fc-progress"></div>
+        <div class="flashcard-wrapper" id="fc-wrapper">
+          <div class="flashcard-inner" id="fc-inner">
+            <div class="flashcard-front">
+              <div class="fc-zh" id="fc-front-zh"></div>
+              <div class="fc-hint">Tap to reveal 點擊翻轉</div>
+            </div>
+            <div class="flashcard-back">
+              <div class="fc-en" id="fc-back-en"></div>
+              <div class="fc-phonetic" id="fc-back-phonetic"></div>
+              <div class="fc-zh-small" id="fc-back-zh"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flashcard-actions" id="fc-actions" style="display:none;">
+          <button class="fc-btn fc-btn-fail" id="fc-fail">❌ 不熟</button>
+          <button class="fc-btn fc-btn-pass" id="fc-pass">✅ 記住了</button>
+        </div>
+        <div id="flashcard-empty" style="display:none;text-align:center;color:#94a3b8;padding:32px;">
+          <div style="font-size:48px;margin-bottom:12px;">🃏</div>
+          <h3 style="font-size:16px;font-weight:700;color:#64748b;">No words to review</h3>
+          <p style="font-size:13px;margin-top:6px;">先用相機或情境圖學習一些單字吧！</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== PRONUNCIATION PANEL ========== -->
+  <div id="pronounce-overlay"></div>
+  <div id="pronounce-panel">
+    <button class="pp-close" id="pp-close">✕</button>
+    <div class="pp-word" id="pp-word"></div>
+    <div class="pp-prompt" id="pp-prompt">🎤 Tap to speak</div>
+    <button id="pp-mic-btn">🎤</button>
+    <div id="pp-result"></div>
+  </div>
+
+  <!-- ========== FLOATING PILL TAB BAR ========== -->
+  <div id="tab-bar-wrapper">
+    <nav id="tab-bar">
+      <button class="tab-item active" data-tab="home">
+        <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">home</span>
+        <span>Home</span>
+      </button>
+      <button class="tab-item" data-tab="camera">
+        <span class="material-symbols-outlined">photo_camera</span>
+        <span>Camera</span>
+      </button>
+      <button class="tab-item" data-tab="scenes">
+        <span class="material-symbols-outlined">image_search</span>
+        <span>Scenes</span>
+      </button>
+      <button class="tab-item" data-tab="words">
+        <span class="material-symbols-outlined">menu_book</span>
+        <span>Words</span>
+      </button>
+      <button class="tab-item" data-tab="chat">
+        <span class="material-symbols-outlined">chat_bubble</span>
+        <span>Chat</span>
+      </button>
+    </nav>
   </div>
 
   <script>
-    // ============================================================
-    // In-app browser detection & redirect
-    // ============================================================
-    ;(function detectInAppBrowser() {
-      const ua = navigator.userAgent || ''
-      const isLine = /\bLine\b/i.test(ua)
-      const isFB = /\bFBAV\b/i.test(ua) || /\bFBAN\b/i.test(ua)
-      const isIG = /\bInstagram\b/i.test(ua)
-      const isWeChat = /\bMicroMessenger\b/i.test(ua)
-      const isInApp = isLine || isFB || isIG || isWeChat
-
-      if (!isInApp) return
-
-      const appName = isLine ? 'LINE' : isFB ? 'Facebook' : isIG ? 'Instagram' : 'WeChat'
-      const isAndroid = /android/i.test(ua)
-      const isIOS = /iphone|ipad|ipod/i.test(ua)
-      const url = location.href
-
-      const overlay = document.getElementById('inapp-overlay')
-      const stepsEl = document.getElementById('inapp-steps')
-
-      overlay.style.display = 'flex'
-
-      // Platform-specific instructions
-      if (isAndroid) {
-        if (isLine) {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
-            <div class="step"><span class="step-num">2</span><span>選擇「<b>以其他瀏覽器開啟</b>」</span></div>
-          `
-        } else if (isFB) {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
-            <div class="step"><span class="step-num">2</span><span>選擇「<b>在瀏覽器中開啟</b>」</span></div>
-          `
-        } else {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋮</b> 選單</span></div>
-            <div class="step"><span class="step-num">2</span><span>選擇「<b>以瀏覽器開啟</b>」</span></div>
-          `
-        }
-      } else if (isIOS) {
-        if (isLine) {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>Safari 圖示</b>（羅盤）</span></div>
-            <div class="step"><span class="step-num">2</span><span>會自動用 Safari 開啟此頁</span></div>
-          `
-        } else if (isFB) {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋯</b> 選單</span></div>
-            <div class="step"><span class="step-num">2</span><span>選擇「<b>在 Safari 中開啟</b>」</span></div>
-          `
-        } else {
-          stepsEl.innerHTML = `
-            <div class="step"><span class="step-num">1</span><span>點右下角 <b>⋯</b> 選單</span></div>
-            <div class="step"><span class="step-num">2</span><span>選擇「<b>在 Safari 中開啟</b>」</span></div>
-          `
-        }
-      } else {
-        stepsEl.innerHTML = `
-          <div class="step"><span class="step-num">1</span><span>複製下方網址</span></div>
-          <div class="step"><span class="step-num">2</span><span>貼到 Chrome / Safari 開啟</span></div>
-        `
-      }
-
-      // Try intent:// on Android to auto-open Chrome
-      window.openExternal = function() {
-        if (isAndroid) {
-          // intent:// scheme opens in Chrome
-          const intentUrl = 'intent://' + url.replace(/^https?:\/\//, '') +
-            '#Intent;scheme=https;package=com.android.chrome;end'
-          location.href = intentUrl
-        } else {
-          // iOS: try x-safari-https scheme or just copy
-          window.open(url, '_system')
-        }
-      }
-
-      // Copy URL
-      window.copyUrl = function() {
-        navigator.clipboard.writeText(url).then(() => {
-          const msg = document.getElementById('copied-msg')
-          msg.style.display = 'block'
-          setTimeout(() => msg.style.display = 'none', 2000)
-        }).catch(() => {
-          // Fallback for browsers without clipboard API
-          const ta = document.createElement('textarea')
-          ta.value = url
-          document.body.appendChild(ta)
-          ta.select()
-          document.execCommand('copy')
-          document.body.removeChild(ta)
-          const msg = document.getElementById('copied-msg')
-          msg.style.display = 'block'
-          setTimeout(() => msg.style.display = 'none', 2000)
-        })
-      }
+    // Dynamic greeting based on time of day
+    ;(function() {
+      var h = new Date().getHours()
+      var en = h < 12 ? 'Good morning!' : h < 18 ? 'Good afternoon!' : 'Good evening!'
+      var zh = h < 12 ? '早安！' : h < 18 ? '午安！' : '晚安！'
+      var el = document.getElementById('home-greeting')
+      if (el) el.innerHTML = en + '<br><span class="text-primary">' + zh + '</span>'
     })()
 
     // ============================================================
-    // Tips toggle
+    // Tips
     // ============================================================
     const tipsPanel = document.getElementById('tips-panel')
-    let tipsOpen = false
-
-    function toggleTips() {
-      tipsOpen = !tipsOpen
-      tipsPanel.classList.toggle('show', tipsOpen)
-    }
-
-    // Auto-show tips on every visit, auto-close after 10s or on tap
-    setTimeout(() => {
-      tipsPanel.classList.add('show')
-      tipsOpen = true
+    let tipsOpen = false, tipsShownOnce = false
+    function toggleTips() { tipsOpen = !tipsOpen; tipsPanel.classList.toggle('show', tipsOpen) }
+    document.getElementById('tips-btn').addEventListener('click', toggleTips)
+    function showTipsAuto() {
+      if (tipsShownOnce) return; tipsShownOnce = true
       setTimeout(() => {
-        if (tipsOpen) { tipsPanel.classList.remove('show'); tipsOpen = false }
-      }, 10000)
-    }, 1500)
-
-    // Close tips when tapping camera area
+        tipsPanel.classList.add('show'); tipsOpen = true
+        setTimeout(() => { if (tipsOpen) { tipsPanel.classList.remove('show'); tipsOpen = false } }, 8000)
+      }, 800)
+    }
     document.addEventListener('click', (e) => {
       if (tipsOpen && !e.target.closest('#tips-btn') && !e.target.closest('#tips-panel')) {
-        tipsPanel.classList.remove('show')
-        tipsOpen = false
+        tipsPanel.classList.remove('show'); tipsOpen = false
       }
     }, true)
 
     // ============================================================
-    // Configuration
+    // Config + Camera State
     // ============================================================
     const API_URL = '/api/gemini'
-
-    // ============================================================
-    // State
-    // ============================================================
-    let detecting = false
+    let detecting = false, cameraStarted = false
     const video = document.getElementById('camera')
     const overlay = document.getElementById('overlay')
     const statusEl = document.getElementById('status-text')
-    const loadingEl = document.getElementById('loading')
-    const loadingText = document.getElementById('loading-text')
+    const cameraLoadingEl = document.getElementById('camera-loading')
+    const cameraLoadingText = document.getElementById('camera-loading-text')
     const captureCanvas = document.getElementById('capture-canvas')
     const captureCtx = captureCanvas.getContext('2d')
-
-    // Current displayed result
-    let currentBox = null
-    let currentTag = null
+    let currentBox = null, currentTag = null
 
     // ============================================================
-    // Speech (TTS) — pick the most natural English voice available
+    // TTS
     // ============================================================
+    const hasSpeechSynthesis = typeof speechSynthesis !== 'undefined'
     let bestVoice = null
-
     function pickVoice() {
-      const voices = speechSynthesis.getVoices()
-      if (!voices.length) return
-
-      // Priority keywords for natural-sounding voices (order matters)
-      const prefer = [
-        'Google US English',       // Android Chrome — very natural
-        'Google UK English Female',
-        'Google UK English Male',
-        'Samantha',                // iOS — natural female voice
-        'Karen',                   // iOS — Australian, very clear
-        'Daniel',                  // iOS — British male
-        'Moira',                   // iOS — Irish
-        'Rishi',                   // iOS — Indian English
-      ]
-
-      // Try preferred voices first
-      for (const name of prefer) {
-        const v = voices.find(v => v.name.includes(name))
-        if (v) { bestVoice = v; return }
+      if (!hasSpeechSynthesis) return
+      var voices = speechSynthesis.getVoices(); if (!voices.length) return
+      for (var i = 0; i < ['Google US English','Google UK English Female','Google UK English Male','Samantha','Karen','Daniel','Moira','Rishi'].length; i++) {
+        var name = ['Google US English','Google UK English Female','Google UK English Male','Samantha','Karen','Daniel','Moira','Rishi'][i]
+        var v = voices.find(function(v) { return v.name.includes(name) }); if (v) { bestVoice = v; return }
       }
-
-      // Fallback: any en-US or en-GB voice that isn't "compact" or "espeak"
-      const natural = voices.find(v =>
-        v.lang.startsWith('en') &&
-        !v.name.toLowerCase().includes('compact') &&
-        !v.name.toLowerCase().includes('espeak')
-      )
-      if (natural) { bestVoice = natural; return }
-
-      // Last resort: any English voice
-      bestVoice = voices.find(v => v.lang.startsWith('en')) || null
+      bestVoice = voices.find(function(v) { return v.lang.startsWith('en') && !v.name.toLowerCase().includes('compact') && !v.name.toLowerCase().includes('espeak') })
+        || voices.find(function(v) { return v.lang.startsWith('en') }) || null
     }
+    if (hasSpeechSynthesis) { speechSynthesis.onvoiceschanged = pickVoice; pickVoice() }
 
-    // Voices load async on some browsers
-    speechSynthesis.onvoiceschanged = pickVoice
-    pickVoice()
+    // Gemini TTS with browser fallback
+    var ttsAudio = null, ttsAbort = null
+    function speakBrowserFallback(text) {
+      if (!hasSpeechSynthesis) return
+      if (speechSynthesis.speaking) speechSynthesis.cancel()
+      var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1
+      if (bestVoice) u.voice = bestVoice; speechSynthesis.speak(u)
+    }
 
     function speak(text) {
-      if (speechSynthesis.speaking) speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'en-US'
-      utterance.rate = 0.9
-      utterance.pitch = 1
-      if (bestVoice) utterance.voice = bestVoice
-      speechSynthesis.speak(utterance)
+      // Stop any playing audio & abort pending TTS request
+      if (ttsAbort) { ttsAbort.abort(); ttsAbort = null }
+      if (ttsAudio) { ttsAudio.pause(); ttsAudio = null }
+      if (hasSpeechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel()
+
+      if (!text || text.length < 3) return
+      // Camera mode: use browser TTS (fast, no API call needed)
+      if (currentTab === 'camera') { speakBrowserFallback(text); return }
+
+      // Chat mode: use Gemini TTS — short texts use browser TTS for instant feedback
+      var ttsUrl = API_URL.replace('/api/gemini', '/api/tts')
+      // Pre-create Audio element and set src directly for faster playback start
+      ttsAudio = new Audio()
+      ttsAudio.preload = 'auto'
+      ttsAbort = new AbortController()
+      fetch(ttsUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, voice: 'Kore' }),
+        signal: ttsAbort.signal
+      }).then(function(resp) {
+        if (!resp.ok) throw new Error('TTS API error')
+        return resp.blob()
+      }).then(function(blob) {
+        if (!ttsAudio) return // was cancelled
+        var url = URL.createObjectURL(blob)
+        ttsAudio.src = url
+        ttsAudio.onended = function() { URL.revokeObjectURL(url); ttsAudio = null }
+        ttsAudio.onerror = function() { URL.revokeObjectURL(url); ttsAudio = null }
+        ttsAudio.play().catch(function() {})
+      }).catch(function(e) {
+        if (e.name === 'AbortError') return
+        console.warn('Gemini TTS failed, fallback:', e.message)
+        speakBrowserFallback(text)
+      })
     }
 
     // ============================================================
-    // Camera
+    // Camera (lazy)
     // ============================================================
     async function startCamera() {
-      loadingText.textContent = 'Requesting camera access...'
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      })
-      video.srcObject = stream
-      await video.play()
+      if (cameraStarted) return
+      cameraLoadingText.textContent = 'Requesting camera access...'
+      try {
+        var stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false
+        })
+        video.srcObject = stream; await video.play(); cameraStarted = true
+        cameraLoadingEl.classList.add('hidden')
+        setTimeout(function() { cameraLoadingEl.style.display = 'none' }, 500)
+        statusEl.textContent = 'Tap any object to learn its name'; showTipsAuto()
+      } catch (err) {
+        console.error('Camera error:', err)
+        cameraLoadingEl.innerHTML = '<div style="text-align:center;padding:0 32px">'
+          + '<div style="font-size:48px;margin-bottom:16px">📷</div>'
+          + '<div style="font-size:18px;font-weight:700;margin-bottom:8px">Camera Not Available</div>'
+          + '<div style="font-size:14px;color:rgba(255,255,255,0.6);margin-bottom:24px;line-height:1.6">'
+          + 'Please open in Chrome or Safari to use camera<br>請用 Chrome 或 Safari 開啟以使用相機'
+          + '</div>'
+          + '<button style="background:#e94560;color:white;border:none;border-radius:12px;padding:12px 32px;font-size:15px;font-weight:600;cursor:pointer" id="btn-camera-back">Back 返回</button>'
+          + '</div>'
+        document.getElementById('btn-camera-back').addEventListener('click', function() {
+          // Reset camera state so it can retry next time
+          cameraStarted = false
+          cameraLoadingEl.innerHTML = '<div class="pulse-ring" style="margin-bottom:16px"></div><p style="color:rgba(255,255,255,0.8);font-size:14px" id="camera-loading-text">Starting camera...</p>'
+          cameraLoadingEl.classList.remove('hidden')
+          cameraLoadingEl.style.display = ''
+          switchTab('home')
+        })
+      }
     }
 
-    // ============================================================
-    // Screen coords ↔ Video coords (object-fit: cover)
-    // ============================================================
     function screenToVideo(sx, sy) {
-      const vw = video.videoWidth, vh = video.videoHeight
-      const sw = window.innerWidth, sh = window.innerHeight
+      const vw = video.videoWidth, vh = video.videoHeight, sw = window.innerWidth, sh = window.innerHeight
       const videoRatio = vw / vh, screenRatio = sw / sh
-
       let scale, offsetX = 0, offsetY = 0
-      if (screenRatio > videoRatio) {
-        scale = sw / vw
-        offsetY = (sh - vh * scale) / 2
-      } else {
-        scale = sh / vh
-        offsetX = (sw - vw * scale) / 2
-      }
-
-      return {
-        vx: (sx - offsetX) / scale,
-        vy: (sy - offsetY) / scale
-      }
+      if (screenRatio > videoRatio) { scale = sw / vw; offsetY = (sh - vh * scale) / 2 }
+      else { scale = sh / vh; offsetX = (sw - vw * scale) / 2 }
+      return { vx: (sx - offsetX) / scale, vy: (sy - offsetY) / scale }
     }
-
     function geminiToScreen(box_2d) {
       const [yMin, xMin, yMax, xMax] = box_2d
-      const vw = video.videoWidth, vh = video.videoHeight
-      const sw = window.innerWidth, sh = window.innerHeight
-
-      const vx1 = (xMin / 1000) * vw, vy1 = (yMin / 1000) * vh
-      const vx2 = (xMax / 1000) * vw, vy2 = (yMax / 1000) * vh
-
-      const videoRatio = vw / vh, screenRatio = sw / sh
+      const vw = video.videoWidth, vh = video.videoHeight, sw = window.innerWidth, sh = window.innerHeight
+      const vx1 = (xMin/1000)*vw, vy1 = (yMin/1000)*vh, vx2 = (xMax/1000)*vw, vy2 = (yMax/1000)*vh
+      const videoRatio = vw/vh, screenRatio = sw/sh
       let scale, offsetX = 0, offsetY = 0
-      if (screenRatio > videoRatio) {
-        scale = sw / vw
-        offsetY = (sh - vh * scale) / 2
-      } else {
-        scale = sh / vh
-        offsetX = (sw - vw * scale) / 2
-      }
-
-      return {
-        left: vx1 * scale + offsetX,
-        top: vy1 * scale + offsetY,
-        width: (vx2 - vx1) * scale,
-        height: (vy2 - vy1) * scale,
+      if (screenRatio > videoRatio) { scale = sw/vw; offsetY = (sh - vh*scale)/2 }
+      else { scale = sh/vh; offsetX = (sw - vw*scale)/2 }
+      return { left: vx1*scale+offsetX, top: vy1*scale+offsetY, width: (vx2-vx1)*scale, height: (vy2-vy1)*scale }
+    }
+    // ============================================================
+    // WORD STORE (localStorage)
+    // ============================================================
+    const WordStore = {
+      KEY: 'look_learn_words',
+      _data: null,
+      load() {
+        if (this._data) return this._data
+        try { this._data = JSON.parse(localStorage.getItem(this.KEY)) || { words: [] } }
+        catch { this._data = { words: [] } }
+        return this._data
+      },
+      save() { localStorage.setItem(this.KEY, JSON.stringify(this._data)) },
+      getAll() { return this.load().words },
+      add(word) {
+        this.load()
+        const key = word.en.toLowerCase().trim()
+        if (this._data.words.some(w => w.en.toLowerCase().trim() === key)) return false
+        this._data.words.push({
+          id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
+          en: word.en, zh: word.zh || '', phonetic: word.phonetic || '',
+          source: word.source || 'camera', scene: word.scene || '',
+          addedAt: new Date().toISOString(),
+          reviewCount: 0, lastReview: null, score: 0
+        })
+        this.save(); return true
+      },
+      addBatch(words, source, scene) {
+        this.load(); let added = 0
+        words.forEach(w => {
+          const key = w.en?.toLowerCase().trim() || w.label?.toLowerCase().trim()
+          if (!key) return
+          if (this._data.words.some(x => x.en.toLowerCase().trim() === key)) return
+          this._data.words.push({
+            id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2),
+            en: w.en || w.label, zh: w.zh || w.label_zh || '',
+            phonetic: w.phonetic || '',
+            source: source || 'scene', scene: scene || '',
+            addedAt: new Date().toISOString(),
+            reviewCount: 0, lastReview: null, score: 0
+          })
+          added++
+        })
+        if (added > 0) this.save()
+        return added
+      },
+      remove(id) {
+        this.load()
+        this._data.words = this._data.words.filter(w => w.id !== id)
+        this.save()
+      },
+      updateScore(id, delta) {
+        this.load()
+        const w = this._data.words.find(x => x.id === id)
+        if (w) { w.score = Math.max(0, (w.score || 0) + delta); w.reviewCount = (w.reviewCount || 0) + 1; w.lastReview = new Date().toISOString(); this.save() }
+      },
+      getForFlashcard() {
+        const words = this.getAll()
+        if (!words.length) return []
+        return [...words].sort((a, b) => (a.score || 0) - (b.score || 0))
+      },
+      todayCount() {
+        const today = new Date().toISOString().slice(0, 10)
+        return this.getAll().filter(w => w.addedAt?.startsWith(today)).length
       }
     }
 
-    // ============================================================
-    // Clear current result
-    // ============================================================
     function clearResult() {
       if (currentBox) {
-        currentBox.classList.add('leaving')
-        currentTag.classList.add('leaving')
+        currentBox.classList.add('leaving'); currentTag.classList.add('leaving')
         const b = currentBox, t = currentTag
         setTimeout(() => { b.remove(); t.remove() }, 300)
-        currentBox = null
-        currentTag = null
+        currentBox = null; currentTag = null
       }
     }
-
-    // ============================================================
-    // Show result
-    // ============================================================
     function showResult(det) {
       clearResult()
-
-      const coords = geminiToScreen(det.box_2d)
-      const en = det.label
-      const zh = det.label_zh || ''
-
-      // Box
-      const box = document.createElement('div')
-      box.className = 'detect-box'
-      box.style.cssText = `left:${coords.left}px;top:${coords.top}px;width:${coords.width}px;height:${coords.height}px;`
+      const c = geminiToScreen(det.box_2d), en = det.label, zh = det.label_zh || ''
+      const box = document.createElement('div'); box.className = 'detect-box'
+      box.style.cssText = `left:${c.left}px;top:${c.top}px;width:${c.width}px;height:${c.height}px;`
       overlay.appendChild(box)
-
-      // Tag — positioned at top center of box
-      const tag = document.createElement('div')
-      tag.className = 'label-tag'
-      tag.style.cssText = `left:${coords.left + coords.width / 2}px;top:${coords.top}px;`
-
-      const enEl = document.createElement('div')
-      enEl.className = 'label-en'
-      enEl.textContent = en
-      enEl.addEventListener('click', (e) => {
-        e.stopPropagation()
-        enEl.classList.add('speaking')
-        speak(en)
-        setTimeout(() => enEl.classList.remove('speaking'), 1000)
-      })
-
-      const zhEl = document.createElement('div')
-      zhEl.className = 'label-zh'
-      zhEl.textContent = zh
-
-      const arrow = document.createElement('div')
-      arrow.className = 'label-arrow'
-
-      tag.appendChild(enEl)
-      tag.appendChild(zhEl)
-      tag.appendChild(arrow)
-      overlay.appendChild(tag)
-
-      currentBox = box
-      currentTag = tag
-
-      // Auto-speak on detection
-      speak(en)
-
+      const tag = document.createElement('div'); tag.className = 'label-tag'
+      tag.style.cssText = `left:${c.left + c.width/2}px;top:${c.top}px;`
+      const enEl = document.createElement('div'); enEl.className = 'label-en'; enEl.textContent = en
+      enEl.addEventListener('click', (e) => { e.stopPropagation(); enEl.classList.add('speaking'); speak(en); setTimeout(() => enEl.classList.remove('speaking'), 1000) })
+      const zhEl = document.createElement('div'); zhEl.className = 'label-zh'; zhEl.textContent = zh
+      const micEl = document.createElement('div')
+      micEl.style.cssText = 'background:rgba(13,89,242,0.85);color:white;font-size:12px;padding:3px 10px;border-radius:8px;margin-top:3px;cursor:pointer;font-weight:600;'
+      micEl.textContent = '🎤 跟讀'
+      micEl.addEventListener('click', (e) => { e.stopPropagation(); showPronouncePanel(en, zh) })
+      const arrow = document.createElement('div'); arrow.className = 'label-arrow'
+      tag.appendChild(enEl); tag.appendChild(zhEl); tag.appendChild(micEl); tag.appendChild(arrow); overlay.appendChild(tag)
+      currentBox = box; currentTag = tag; speak(en)
       statusEl.innerHTML = `<b>${en}</b> — tap to hear again, or tap another object`
+      // Auto-save to word collection
+      WordStore.add({ en: en, zh: zh, phonetic: '', source: 'camera' })
     }
-
-    // ============================================================
-    // Detect object at tap point
-    // ============================================================
     async function detectAt(screenX, screenY) {
-      if (detecting) return
-      detecting = true
-
-      clearResult()
-
-      // Show ripple
-      const ripple = document.createElement('div')
-      ripple.className = 'tap-ripple'
-      ripple.style.left = screenX + 'px'
-      ripple.style.top = screenY + 'px'
-      overlay.appendChild(ripple)
-      setTimeout(() => ripple.remove(), 1000)
-
+      if (detecting) return; detecting = true; clearResult()
+      const ripple = document.createElement('div'); ripple.className = 'tap-ripple'
+      ripple.style.left = screenX + 'px'; ripple.style.top = screenY + 'px'
+      overlay.appendChild(ripple); setTimeout(() => ripple.remove(), 1000)
       statusEl.innerHTML = '<span class="detecting-spinner"></span>Identifying...'
-
       const vw = video.videoWidth, vh = video.videoHeight
       if (!vw || !vh) { detecting = false; return }
-
-      // Convert tap to normalized coords (0-1000)
       const { vx, vy } = screenToVideo(screenX, screenY)
-      const normX = Math.round((vx / vw) * 1000)
-      const normY = Math.round((vy / vh) * 1000)
-
-      // Capture frame
-      const scale = Math.min(640 / vw, 640 / vh, 1)
-      const cw = Math.round(vw * scale), ch = Math.round(vh * scale)
-      captureCanvas.width = cw
-      captureCanvas.height = ch
+      const normX = Math.round((vx/vw)*1000), normY = Math.round((vy/vh)*1000)
+      const scale = Math.min(640/vw, 640/vh, 1), cw = Math.round(vw*scale), ch = Math.round(vh*scale)
+      captureCanvas.width = cw; captureCanvas.height = ch
       captureCtx.drawImage(video, 0, 0, vw, vh, 0, 0, cw, ch)
       const base64 = captureCanvas.toDataURL('image/jpeg', 0.7).split(',')[1]
-
-      const prompt = `What is the object at point (${normX}, ${normY}) in this image? Coordinates are normalized 0-1000 where (0,0) is top-left.
-Return ONLY a JSON object (no markdown): {"label":"English name","label_zh":"繁體中文名稱","box_2d":[y_min,x_min,y_max,x_max]}
-box_2d coordinates are also 0-1000 normalized. Be specific (e.g. "Mechanical keyboard" not just "Object").`
-
+      const prompt = `What is the object at point (${normX}, ${normY}) in this image? Coordinates are normalized 0-1000 where (0,0) is top-left.\nReturn ONLY a JSON object (no markdown): {"label":"English name","label_zh":"繁體中文名稱","box_2d":[y_min,x_min,y_max,x_max]}\nbox_2d coordinates are also 0-1000 normalized. Be specific (e.g. "Mechanical keyboard" not just "Object").`
       try {
-        const resp = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              parts: [
-                { inline_data: { mime_type: 'image/jpeg', data: base64 } },
-                { text: prompt }
-              ]
-            }],
-            generationConfig: { temperature: 0, maxOutputTokens: 150 }
-          })
+        const resp = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: base64 } }, { text: prompt }] }], generationConfig: { temperature: 0, maxOutputTokens: 150 } })
         })
-
-        if (!resp.ok) {
-          const errBody = await resp.text().catch(() => '')
-          let msg = `API error ${resp.status}`
-          try { msg = JSON.parse(errBody).error?.message?.slice(0, 60) || msg } catch {}
-          statusEl.textContent = msg
-          detecting = false
-          return
-        }
-
-        const data = await resp.json()
-        const parts = data.candidates?.[0]?.content?.parts
-        if (!parts) {
-          statusEl.textContent = 'No response — try again'
-          detecting = false
-          return
-        }
-
-        // Find last text part
-        let text = ''
-        for (let i = parts.length - 1; i >= 0; i--) {
-          if (parts[i].text) { text = parts[i].text.trim(); break }
-        }
-
-        // Strip markdown fences
-        if (text.includes('```')) {
-          text = text.replace(/^[\s\S]*?```(?:json)?\s*/, '').replace(/\s*```[\s\S]*$/, '')
-        }
-
-        // Extract JSON object
+        if (!resp.ok) { const e = await resp.text().catch(() => ''); let m = `API error ${resp.status}`; try { m = JSON.parse(e).error?.message?.slice(0,60) || m } catch {}; statusEl.textContent = m; detecting = false; return }
+        const data = await resp.json(), parts = data.candidates?.[0]?.content?.parts
+        if (!parts) { statusEl.textContent = 'No response — try again'; detecting = false; return }
+        let text = ''; for (let i = parts.length - 1; i >= 0; i--) { if (parts[i].text) { text = parts[i].text.trim(); break } }
+        if (text.includes('```')) text = text.replace(/^[\s\S]*?```(?:json)?\s*/, '').replace(/\s*```[\s\S]*$/, '')
         const jsonMatch = text.match(/\{[\s\S]*\}/)
-        if (!jsonMatch) {
-          statusEl.textContent = 'Could not identify — try again'
-          detecting = false
-          return
-        }
-
+        if (!jsonMatch) { statusEl.textContent = 'Could not identify — try again'; detecting = false; return }
         const det = JSON.parse(jsonMatch[0])
-        if (det.label && det.box_2d?.length === 4) {
-          showResult(det)
-        } else {
-          statusEl.textContent = 'Could not identify — try again'
-        }
-      } catch (e) {
-        console.error('Detection error:', e)
-        statusEl.textContent = 'Error — try again'
-      }
-
+        if (det.label && det.box_2d?.length === 4) showResult(det)
+        else statusEl.textContent = 'Could not identify — try again'
+      } catch (e) { console.error('Detection error:', e); statusEl.textContent = 'Error — try again' }
       detecting = false
     }
-
-    // ============================================================
-    // Tap handler
-    // ============================================================
-    document.addEventListener('click', (e) => {
-      // Tap on label → speak again (handled by label's own click)
+    document.getElementById('camera-section').addEventListener('click', (e) => {
+      if (e.target.closest('#tips-btn') || e.target.closest('#tips-panel') || e.target.closest('#camera-loading')) return
       if (e.target.closest('.label-en')) return
-      // Tap on box/tag area → close current result, don't detect new
-      if (e.target.closest('.label-tag') || e.target.closest('.detect-box')) {
-        clearResult()
-        statusEl.textContent = 'Tap any object to learn its name'
-        return
-      }
-      // If there's a current result showing, close it first and detect new
-      if (currentBox) clearResult()
-      detectAt(e.clientX, e.clientY)
+      if (e.target.closest('.label-tag') || e.target.closest('.detect-box')) { clearResult(); statusEl.textContent = 'Tap any object to learn its name'; return }
+      if (currentBox) clearResult(); detectAt(e.clientX, e.clientY)
     })
 
     // ============================================================
-    // Init
+    // TAB SWITCHING
     // ============================================================
-    async function init() {
-      try {
-        await startCamera()
-        loadingEl.classList.add('hidden')
-        setTimeout(() => loadingEl.style.display = 'none', 500)
-        statusEl.textContent = 'Tap any object to learn its name'
-      } catch (err) {
-        console.error('Init error:', err)
-        loadingText.textContent = 'Error: ' + err.message
+    let currentTab = 'home'
+    function switchTab(tab) {
+      if (tab === currentTab) return; currentTab = tab
+      stopAutoNarration()
+      // Update tab icons — fill active
+      document.querySelectorAll('#tab-bar .tab-item').forEach(el => {
+        const isActive = el.dataset.tab === tab
+        el.classList.toggle('active', isActive)
+        const icon = el.querySelector('.material-symbols-outlined')
+        icon.style.fontVariationSettings = isActive ? "'FILL' 1" : "'FILL' 0"
+      })
+      // Sections
+      document.getElementById('home-section').classList.add('hidden-section')
+      document.getElementById('camera-section').classList.remove('active')
+      document.getElementById('chat-section').classList.remove('active')
+      document.getElementById('scenes-section').classList.remove('active')
+      document.getElementById('words-section').classList.remove('active')
+      document.getElementById('tips-btn').classList.remove('show')
+      tipsPanel.classList.remove('show'); tipsOpen = false
+      document.getElementById('status-bar').classList.remove('show')
+      // Tab bar style
+      const tabBar = document.getElementById('tab-bar')
+      tabBar.classList.remove('dark-variant')
+      // Body scroll
+      document.body.classList.remove('home-active')
+
+      if (tab === 'home') {
+        document.getElementById('home-section').classList.remove('hidden-section')
+        document.body.classList.add('home-active')
+      } else if (tab === 'camera') {
+        document.getElementById('camera-section').classList.add('active')
+        document.getElementById('tips-btn').classList.add('show')
+        document.getElementById('status-bar').classList.add('show')
+        tabBar.classList.add('dark-variant')
+        startCamera()
+      } else if (tab === 'scenes') {
+        document.getElementById('scenes-section').classList.add('active')
+        initSceneGrid()
+      } else if (tab === 'words') {
+        document.getElementById('words-section').classList.add('active')
+        renderWordsView()
+      } else if (tab === 'chat') {
+        document.getElementById('chat-section').classList.add('active')
+        tabBar.classList.add('dark-variant')
+        if (chatHistory.length === 0) sendGreeting()
+        scrollToBottom()
       }
     }
 
-    init()
+    // Bind tab bar buttons
+    document.querySelectorAll('#tab-bar .tab-item').forEach(el => {
+      el.addEventListener('click', () => switchTab(el.dataset.tab))
+    })
+    // Bind home card clicks
+    document.querySelectorAll('[data-action]').forEach(el => {
+      el.addEventListener('click', () => switchTab(el.dataset.action))
+    })
+
+    // ============================================================
+    // SCENES — SceneCache + Generation Pipeline + Label v2
+    // ============================================================
+    const SCENE_CATEGORIES = [
+      {
+        key: 'kitchen', icon: '🍳', name: 'Kitchen', name_zh: '廚房',
+        gradient: 'linear-gradient(135deg, #FFE0B2, #FFCC80)',
+        sampleItems: ['refrigerator','stove','frying pan','microwave','kettle','cutting board','knife','bowl','plate','cup','sink','oven']
+      },
+      {
+        key: 'classroom', icon: '📚', name: 'Classroom', name_zh: '教室',
+        gradient: 'linear-gradient(135deg, #BBDEFB, #90CAF9)',
+        sampleItems: ['desk','chair','blackboard','book','pencil','eraser','ruler','backpack','globe','clock','notebook','whiteboard']
+      },
+      {
+        key: 'park', icon: '🏞️', name: 'Park', name_zh: '公園',
+        gradient: 'linear-gradient(135deg, #C8E6C9, #A5D6A7)',
+        sampleItems: ['tree','bench','swing','slide','fountain','bicycle','flower','bird','squirrel','path','grass','kite']
+      },
+      {
+        key: 'supermarket', icon: '🛒', name: 'Supermarket', name_zh: '超市',
+        gradient: 'linear-gradient(135deg, #FFF9C4, #FFF176)',
+        sampleItems: ['shopping cart','apple','banana','milk carton','bread','cheese','cashier','shelf','basket','cereal box','juice bottle','scale']
+      },
+      {
+        key: 'living_room', icon: '🛋️', name: 'Living Room', name_zh: '客廳',
+        gradient: 'linear-gradient(135deg, #D1C4E9, #B39DDB)',
+        sampleItems: ['sofa','television','coffee table','lamp','bookshelf','cushion','remote control','carpet','painting','window','curtain','plant']
+      },
+      {
+        key: 'bedroom', icon: '🛏️', name: 'Bedroom', name_zh: '臥室',
+        gradient: 'linear-gradient(135deg, #F8BBD0, #F48FB1)',
+        sampleItems: ['bed','pillow','blanket','wardrobe','alarm clock','mirror','nightstand','teddy bear','drawer','hanger','lamp','rug']
+      }
+    ]
+
+    // ── SceneCache (localStorage, LRU, 4MB budget) ──
+    const SceneCache = {
+      KEY_PREFIX: 'look_learn_scene_',
+      MAX_SIZE: 4 * 1024 * 1024,
+      get(sceneKey) {
+        try {
+          const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
+          if (!raw) return null
+          const d = JSON.parse(raw)
+          // touch timestamp
+          d.ts = Date.now()
+          localStorage.setItem(this.KEY_PREFIX + sceneKey, JSON.stringify(d))
+          return d // { image, mimeType, items, ts }
+        } catch { return null }
+      },
+      set(sceneKey, data) {
+        const entry = JSON.stringify({ image: data.image, mimeType: data.mimeType, items: data.items, ts: Date.now() })
+        // Evict until under budget
+        while (this.getSize() + entry.length > this.MAX_SIZE) {
+          if (!this.evictOldest()) break
+        }
+        try { localStorage.setItem(this.KEY_PREFIX + sceneKey, entry) } catch {}
+      },
+      remove(sceneKey) {
+        localStorage.removeItem(this.KEY_PREFIX + sceneKey)
+      },
+      getSize() {
+        let total = 0
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k.startsWith(this.KEY_PREFIX)) total += localStorage.getItem(k).length
+        }
+        return total
+      },
+      evictOldest() {
+        let oldestKey = null, oldestTs = Infinity
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (!k.startsWith(this.KEY_PREFIX)) continue
+          try {
+            const d = JSON.parse(localStorage.getItem(k))
+            if (d.ts < oldestTs) { oldestTs = d.ts; oldestKey = k }
+          } catch { localStorage.removeItem(k); return true }
+        }
+        if (oldestKey) { localStorage.removeItem(oldestKey); return true }
+        return false
+      },
+      has(sceneKey) {
+        return localStorage.getItem(this.KEY_PREFIX + sceneKey) !== null
+      },
+      getThumb(sceneKey) {
+        try {
+          const raw = localStorage.getItem(this.KEY_PREFIX + sceneKey)
+          if (!raw) return null
+          const d = JSON.parse(raw)
+          return 'data:' + (d.mimeType || 'image/png') + ';base64,' + d.image
+        } catch { return null }
+      }
+    }
+
+    // ── Scene Grid ──
+    let sceneGridInited = false
+    function initSceneGrid() {
+      if (sceneGridInited) { updateSceneGridThumbs(); return }
+      sceneGridInited = true
+      const grid = document.getElementById('scene-grid')
+      grid.innerHTML = ''
+      SCENE_CATEGORIES.forEach(cat => {
+        const card = document.createElement('div')
+        card.className = 'scene-card'
+        card.dataset.sceneKey = cat.key
+        const cached = SceneCache.has(cat.key)
+        const thumb = cached ? SceneCache.getThumb(cat.key) : null
+        card.innerHTML = `
+          <div class="scene-card-icon ${cached ? '' : 'has-gradient'}" style="${cached ? '' : '--card-gradient:' + cat.gradient}; position:relative;">
+            ${thumb ? '<img class="scene-thumb" src="' + thumb + '" alt="">' : '<span style="font-size:40px">' + cat.icon + '</span>'}
+            ${cached ? '<span class="cached-badge">Cached</span>' : ''}
+          </div>
+          <div class="scene-card-body">
+            <h3>${cat.name}</h3>
+            <p>${cat.name_zh}</p>
+          </div>`
+        card.addEventListener('click', () => openSceneCategory(cat))
+        grid.appendChild(card)
+      })
+      // Bottom buttons
+      document.getElementById('scene-camera-btn').addEventListener('click', captureScenePhoto)
+      document.getElementById('scene-upload-btn').addEventListener('click', pickScenePhoto)
+    }
+    function updateSceneGridThumbs() {
+      SCENE_CATEGORIES.forEach(cat => {
+        const card = document.querySelector(`.scene-card[data-scene-key="${cat.key}"]`)
+        if (!card) return
+        const cached = SceneCache.has(cat.key)
+        const thumb = cached ? SceneCache.getThumb(cat.key) : null
+        const iconEl = card.querySelector('.scene-card-icon')
+        if (thumb) {
+          iconEl.className = 'scene-card-icon'
+          iconEl.style.cssText = 'position:relative;'
+          iconEl.innerHTML = `<img class="scene-thumb" src="${thumb}" alt=""><span class="cached-badge">Cached</span>`
+        } else {
+          iconEl.className = 'scene-card-icon has-gradient'
+          iconEl.style.cssText = '--card-gradient:' + cat.gradient + '; position:relative;'
+          iconEl.innerHTML = `<span style="font-size:40px">${cat.icon}</span>`
+        }
+      })
+    }
+
+    // ── File inputs (camera + upload) ──
+    const sceneFileInput = document.createElement('input')
+    sceneFileInput.type = 'file'; sceneFileInput.accept = 'image/*'; sceneFileInput.style.display = 'none'
+    document.body.appendChild(sceneFileInput)
+    sceneFileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) processScenePhoto(e.target.files[0], 'Upload')
+      e.target.value = ''
+    })
+    function pickScenePhoto() { sceneFileInput.click() }
+
+    const sceneCaptureInput = document.createElement('input')
+    sceneCaptureInput.type = 'file'; sceneCaptureInput.accept = 'image/*'
+    sceneCaptureInput.setAttribute('capture', 'environment'); sceneCaptureInput.style.display = 'none'
+    document.body.appendChild(sceneCaptureInput)
+    sceneCaptureInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) processScenePhoto(e.target.files[0], 'Photo')
+      e.target.value = ''
+    })
+    function captureScenePhoto() { sceneCaptureInput.click() }
+
+    // ── Loading progress helper ──
+    function setSceneProgress(step, pct) {
+      document.getElementById('scene-progress-step').textContent = step
+      document.getElementById('scene-progress-fill').style.width = pct + '%'
+      document.getElementById('scene-progress-pct').textContent = pct + '%'
+    }
+
+    // ── Gemini image generation (Step 1) ──
+    async function generateSceneImage(cat) {
+      const prompt = `Create a colorful cartoon illustration of a ${cat.name} scene for children's English vocabulary learning.
+
+Requirements:
+- Warm, bright colors with flat cartoon style
+- Show 10-12 common items clearly separated (not overlapping)
+- Each item should be distinct and easy to identify
+- Include a cute child character interacting with the scene
+- Clean white/light background areas between items
+- Items should be labeled-friendly (clear outlines, good spacing)
+- Style: similar to children's educational picture books
+- No text or labels in the image
+
+Scene-specific items to include: ${cat.sampleItems.join(', ')}`
+
+      const resp = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
+          _model: 'gemini-2.0-flash-exp'
+        })
+      })
+      if (!resp.ok) throw new Error('Image generation failed: ' + resp.status)
+      const data = await resp.json()
+      const parts = data.candidates?.[0]?.content?.parts
+      if (!parts) throw new Error('No response from image generation')
+      // Find inline image data
+      for (const p of parts) {
+        if (p.inlineData?.data) {
+          return { image: p.inlineData.data, mimeType: p.inlineData.mimeType || 'image/png' }
+        }
+      }
+      throw new Error('No image in response')
+    }
+
+    // ── Gemini image analysis (Step 2) ──
+    async function analyzeSceneImage(base64, mimeType) {
+      const prompt = `Analyze this image and identify ALL visible objects/items.
+Return a JSON array (no markdown):
+[{"label":"English name","label_zh":"繁體中文名稱","phonetic":"/KK phonetic/","box_2d":[y_min,x_min,y_max,x_max]}]
+box_2d coordinates are 0-1000 normalized. Include 8-15 objects.
+Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object").`
+
+      const resp = await fetch(API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ inline_data: { mime_type: mimeType, data: base64 } }, { text: prompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 1500 }
+        })
+      })
+      if (!resp.ok) throw new Error('Scene analysis failed: ' + resp.status)
+      const data = await resp.json()
+      const parts = data.candidates?.[0]?.content?.parts
+      if (!parts) throw new Error('No analysis response')
+      let text = ''
+      for (let i = parts.length - 1; i >= 0; i--) { if (parts[i].text) { text = parts[i].text.trim(); break } }
+      if (text.includes('```')) text = text.replace(/^[\s\S]*?```(?:json)?\s*/, '').replace(/\s*```[\s\S]*$/, '')
+      const arrMatch = text.match(/\[[\s\S]*\]/)
+      if (!arrMatch) throw new Error('Could not parse analysis')
+      const items = JSON.parse(arrMatch[0])
+      if (!items.length) throw new Error('No objects found')
+      return items
+    }
+
+    // ── Open scene category (cache-first + 2-step pipeline) ──
+    let _currentSceneCat = null
+    async function openSceneCategory(cat) {
+      _currentSceneCat = cat
+      const viewer = document.getElementById('scene-viewer')
+      const img = document.getElementById('scene-image')
+      const labelsEl = document.getElementById('scene-labels')
+      const itemsScroll = document.getElementById('scene-items-scroll')
+      const loading = document.getElementById('scene-loading')
+
+      document.getElementById('scene-title').textContent = `${cat.icon} ${cat.name}`
+      labelsEl.innerHTML = ''
+      itemsScroll.innerHTML = ''
+      viewer.classList.add('active')
+
+      // Check cache first
+      const cached = SceneCache.get(cat.key)
+      if (cached) {
+        loading.classList.add('hidden')
+        img.src = 'data:' + cached.mimeType + ';base64,' + cached.image
+        const doShow = () => {
+          renderSceneLabelsV2(cached.items, img, labelsEl, itemsScroll)
+          WordStore.addBatch(cached.items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', cat.key)
+        }
+        if (img.complete && img.naturalWidth) doShow()
+        else img.onload = doShow
+        return
+      }
+
+      // No cache → generate
+      loading.classList.remove('hidden')
+      await runScenePipeline(cat, img, labelsEl, itemsScroll, loading)
+    }
+
+    // ── Two-step pipeline ──
+    async function runScenePipeline(cat, img, labelsEl, itemsScroll, loading) {
+      let fakeProgress = 0
+      const progressTimer = setInterval(() => {
+        if (fakeProgress < 55) { fakeProgress += Math.random() * 4 + 1; setSceneProgress('🎨 Generating scene...', Math.round(fakeProgress)) }
+      }, 300)
+
+      try {
+        // Step 1: Generate image
+        setSceneProgress('🎨 Generating scene...', 5)
+        const gen = await generateSceneImage(cat)
+        clearInterval(progressTimer)
+        setSceneProgress('🔍 Finding objects...', 62)
+
+        img.src = 'data:' + gen.mimeType + ';base64,' + gen.image
+
+        // Step 2: Analyze
+        let fakeProgress2 = 62
+        const progressTimer2 = setInterval(() => {
+          if (fakeProgress2 < 92) { fakeProgress2 += Math.random() * 3 + 1; setSceneProgress('🔍 Finding objects...', Math.round(fakeProgress2)) }
+        }, 300)
+
+        const items = await analyzeSceneImage(gen.image, gen.mimeType)
+        clearInterval(progressTimer2)
+        setSceneProgress('✅ Done!', 100)
+
+        // Cache it
+        SceneCache.set(cat.key, { image: gen.image, mimeType: gen.mimeType, items })
+        updateSceneGridThumbs()
+
+        setTimeout(() => { loading.classList.add('hidden') }, 300)
+
+        const doShow = () => {
+          renderSceneLabelsV2(items, img, labelsEl, itemsScroll)
+          WordStore.addBatch(items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', cat.key)
+        }
+        if (img.complete && img.naturalWidth) doShow()
+        else img.onload = doShow
+      } catch (err) {
+        clearInterval(progressTimer)
+        console.error('Scene pipeline error:', err)
+        loading.classList.add('hidden')
+        // Show error overlay
+        const labelsEl2 = document.getElementById('scene-labels')
+        labelsEl2.innerHTML = `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);color:white;z-index:58;">
+          <div style="font-size:40px;margin-bottom:12px;">😕</div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Generation Failed</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-bottom:16px;text-align:center;padding:0 32px;">${err.message || 'Please try again'}</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="retryScenePipeline()" style="background:#e94560;color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;">🔄 Retry</button>
+            <button onclick="document.getElementById('scene-viewer').classList.remove('active')" style="background:rgba(255,255,255,0.15);color:white;border:none;border-radius:10px;padding:10px 20px;font-size:14px;font-weight:600;cursor:pointer;">← Back</button>
+          </div>
+        </div>`
+      }
+    }
+    function retryScenePipeline() {
+      if (!_currentSceneCat) return
+      const cat = _currentSceneCat
+      const img = document.getElementById('scene-image')
+      const labelsEl = document.getElementById('scene-labels')
+      const itemsScroll = document.getElementById('scene-items-scroll')
+      const loading = document.getElementById('scene-loading')
+      labelsEl.innerHTML = ''
+      itemsScroll.innerHTML = ''
+      loading.classList.remove('hidden')
+      runScenePipeline(cat, img, labelsEl, itemsScroll, loading)
+    }
+
+    // ── Process user photo (camera/upload) — uses analysis only ──
+    async function processScenePhoto(file, titleOverride) {
+      const title = titleOverride || 'Scene'
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const dataUrl = e.target.result
+        const base64 = dataUrl.split(',')[1]
+        const mimeType = file.type || 'image/jpeg'
+
+        const viewer = document.getElementById('scene-viewer')
+        const img = document.getElementById('scene-image')
+        const labelsEl = document.getElementById('scene-labels')
+        const itemsScroll = document.getElementById('scene-items-scroll')
+        const loading = document.getElementById('scene-loading')
+
+        _currentSceneCat = null
+        img.src = dataUrl
+        document.getElementById('scene-title').textContent = '📷 ' + title
+        labelsEl.innerHTML = ''
+        itemsScroll.innerHTML = ''
+        loading.classList.remove('hidden')
+        setSceneProgress('🔍 Analyzing photo...', 10)
+        viewer.classList.add('active')
+
+        let fakeP = 10
+        const pt = setInterval(() => { if (fakeP < 85) { fakeP += Math.random() * 5 + 2; setSceneProgress('🔍 Analyzing photo...', Math.round(fakeP)) } }, 300)
+        try {
+          const items = await analyzeSceneImage(base64, mimeType)
+          clearInterval(pt)
+          setSceneProgress('✅ Done!', 100)
+          setTimeout(() => { loading.classList.add('hidden') }, 300)
+          const doShow = () => {
+            renderSceneLabelsV2(items, img, labelsEl, itemsScroll)
+            WordStore.addBatch(items.map(it => ({ en: it.label, zh: it.label_zh, phonetic: it.phonetic })), 'scene', 'custom')
+          }
+          if (img.complete && img.naturalWidth) doShow()
+          else img.onload = doShow
+        } catch (err) {
+          clearInterval(pt)
+          console.error('Photo analysis error:', err)
+          loading.classList.add('hidden')
+          alert('Could not analyze photo. Try again.')
+          viewer.classList.remove('active')
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+
+    // ── Label v2 Layout Algorithm (anti-overlap) ──
+    function layoutLabels(items, containerW, containerH, imgRect, cRect) {
+      const LW = 150, LH = 72, PAD = 8
+      const offX = imgRect.left - cRect.left
+      const offY = imgRect.top - cRect.top
+      const positions = items.map(item => {
+        if (!item.box_2d || item.box_2d.length !== 4) return null
+        const [yMin, xMin, yMax, xMax] = item.box_2d
+        const dotX = offX + ((xMin + xMax) / 2 / 1000) * imgRect.width
+        const dotY = offY + ((yMin + yMax) / 2 / 1000) * imgRect.height
+        // Initial label position: above the dot
+        let lx = dotX - LW / 2
+        let ly = dotY - LH - 20
+        return { lx, ly, dotX, dotY, w: LW, h: LH }
+      }).filter(Boolean)
+
+      // Clamp + push-apart (3 rounds)
+      for (let round = 0; round < 3; round++) {
+        for (let i = 0; i < positions.length; i++) {
+          for (let j = i + 1; j < positions.length; j++) {
+            const a = positions[i], b = positions[j]
+            const overlapX = (a.w + PAD) / 2 + (b.w + PAD) / 2 - Math.abs((a.lx + a.w/2) - (b.lx + b.w/2))
+            const overlapY = (a.h + PAD) / 2 + (b.h + PAD) / 2 - Math.abs((a.ly + a.h/2) - (b.ly + b.h/2))
+            if (overlapX > 0 && overlapY > 0) {
+              // Push apart along axis of least overlap
+              if (overlapX < overlapY) {
+                const dir = (a.lx + a.w/2) < (b.lx + b.w/2) ? -1 : 1
+                a.lx += dir * overlapX / 2
+                b.lx -= dir * overlapX / 2
+              } else {
+                const dir = (a.ly + a.h/2) < (b.ly + b.h/2) ? -1 : 1
+                a.ly += dir * overlapY / 2
+                b.ly -= dir * overlapY / 2
+              }
+            }
+          }
+        }
+      }
+      // Clamp to container
+      positions.forEach(p => {
+        p.lx = Math.max(4, Math.min(containerW - p.w - 4, p.lx))
+        p.ly = Math.max(4, Math.min(containerH - p.h - 4, p.ly))
+      })
+      return positions
+    }
+
+    // ── Render Scene Labels v2 ──
+    let _currentSceneItems = []
+    function renderSceneLabelsV2(items, imgEl, labelsEl, itemsScroll) {
+      _currentSceneItems = items
+      labelsEl.innerHTML = ''
+      itemsScroll.innerHTML = ''
+
+      const doRender = () => {
+        const container = document.getElementById('scene-image-container')
+        const cRect = container.getBoundingClientRect()
+        const rect = imgEl.getBoundingClientRect()
+        const positions = layoutLabels(items, cRect.width, cRect.height, rect, cRect)
+
+        // SVG for connector lines
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+        svg.setAttribute('class', 'scene-connector')
+        svg.setAttribute('width', cRect.width)
+        svg.setAttribute('height', cRect.height)
+        labelsEl.appendChild(svg)
+
+        positions.forEach((pos, idx) => {
+          const item = items[idx]
+          if (!pos) return
+
+          // Dot on the item
+          const dot = document.createElement('div')
+          dot.className = 'scene-dot'
+          dot.style.left = pos.dotX + 'px'
+          dot.style.top = pos.dotY + 'px'
+          dot.style.animationDelay = (idx * 0.05) + 's'
+          labelsEl.appendChild(dot)
+
+          // Connector line
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
+          line.setAttribute('x1', pos.lx + pos.w / 2)
+          line.setAttribute('y1', pos.ly + pos.h)
+          line.setAttribute('x2', pos.dotX)
+          line.setAttribute('y2', pos.dotY)
+          svg.appendChild(line)
+
+          // Label card
+          const label = document.createElement('div')
+          label.className = 'scene-label-v2'
+          label.style.left = pos.lx + 'px'
+          label.style.top = pos.ly + 'px'
+          label.style.animationDelay = (idx * 0.06) + 's'
+          label.dataset.idx = idx
+          label.innerHTML = `<div class="slv2-en">${item.label}</div>
+            ${item.phonetic ? '<div class="slv2-phonetic">' + item.phonetic + '</div>' : ''}
+            <div class="slv2-zh">${item.label_zh || ''}</div>`
+
+          label.addEventListener('click', () => {
+            stopAutoNarration()
+            labelsEl.querySelectorAll('.scene-label-v2').forEach(l => l.classList.remove('active'))
+            label.classList.add('active')
+            itemsScroll.querySelectorAll('.scene-item-chip').forEach(c => c.classList.remove('active'))
+            const chip = itemsScroll.querySelector(`[data-idx="${idx}"]`)
+            if (chip) { chip.classList.add('active'); chip.scrollIntoView({ behavior: 'smooth', inline: 'center' }) }
+            speakBrowserFallback(item.label)
+            showPronouncePanel(item.label, item.label_zh)
+          })
+          labelsEl.appendChild(label)
+
+          // Bottom chip
+          const chip = document.createElement('div')
+          chip.className = 'scene-item-chip'
+          chip.dataset.idx = idx
+          chip.textContent = `${item.label} ${item.label_zh || ''}`
+          chip.addEventListener('click', () => {
+            stopAutoNarration()
+            labelsEl.querySelectorAll('.scene-label-v2').forEach(l => l.classList.remove('active'))
+            label.classList.add('active')
+            itemsScroll.querySelectorAll('.scene-item-chip').forEach(c => c.classList.remove('active'))
+            chip.classList.add('active')
+            speakBrowserFallback(item.label)
+            showPronouncePanel(item.label, item.label_zh)
+          })
+          itemsScroll.appendChild(chip)
+        })
+
+        // Start auto narration after a brief delay
+        setTimeout(() => startAutoNarration(items, labelsEl, itemsScroll), 800)
+      }
+      if (imgEl.complete && imgEl.naturalWidth) doRender()
+      else imgEl.onload = doRender
+    }
+
+    // ── Auto-Narration ──
+    let narrationAbort = false
+    async function startAutoNarration(items, labelsEl, itemsScroll) {
+      narrationAbort = false
+      const labels = labelsEl.querySelectorAll('.scene-label-v2')
+      const chips = itemsScroll.querySelectorAll('.scene-item-chip')
+      for (let i = 0; i < items.length; i++) {
+        if (narrationAbort) break
+        // Highlight
+        labels.forEach(l => l.classList.remove('narrating', 'active'))
+        chips.forEach(c => c.classList.remove('active'))
+        if (labels[i]) labels[i].classList.add('narrating')
+        if (chips[i]) { chips[i].classList.add('active'); chips[i].scrollIntoView({ behavior: 'smooth', inline: 'center' }) }
+        // Speak
+        await speakAndWait(items[i].label)
+        if (narrationAbort) break
+        // Unhighlight
+        if (labels[i]) labels[i].classList.remove('narrating')
+        if (chips[i]) chips[i].classList.remove('active')
+        await sleep(400)
+      }
+    }
+    function stopAutoNarration() {
+      narrationAbort = true
+      if (hasSpeechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel()
+    }
+    function speakAndWait(text) {
+      return new Promise(resolve => {
+        if (!hasSpeechSynthesis) { setTimeout(resolve, 500); return }
+        if (speechSynthesis.speaking) speechSynthesis.cancel()
+        const utt = new SpeechSynthesisUtterance(text)
+        utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1
+        if (bestVoice) utt.voice = bestVoice
+        utt.onend = resolve
+        utt.onerror = resolve
+        speechSynthesis.speak(utt)
+        // Safety timeout
+        setTimeout(resolve, 4000)
+      })
+    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+    // ── Scene back + regenerate ──
+    document.getElementById('scene-back-btn').addEventListener('click', () => {
+      stopAutoNarration()
+      document.getElementById('scene-viewer').classList.remove('active')
+    })
+    document.getElementById('scene-regen-btn').addEventListener('click', () => {
+      if (!_currentSceneCat) return
+      stopAutoNarration()
+      SceneCache.remove(_currentSceneCat.key)
+      const img = document.getElementById('scene-image')
+      const labelsEl = document.getElementById('scene-labels')
+      const itemsScroll = document.getElementById('scene-items-scroll')
+      const loading = document.getElementById('scene-loading')
+      labelsEl.innerHTML = ''
+      itemsScroll.innerHTML = ''
+      loading.classList.remove('hidden')
+      runScenePipeline(_currentSceneCat, img, labelsEl, itemsScroll, loading)
+    })
+
+    // ============================================================
+    // WORDS VIEW
+    // ============================================================
+    let currentWordsTab = 'collection'
+    document.querySelectorAll('.words-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentWordsTab = btn.dataset.wordsTab
+        document.querySelectorAll('.words-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.wordsTab === currentWordsTab))
+        document.getElementById('words-collection-view').style.display = currentWordsTab === 'collection' ? 'flex' : 'none'
+        document.getElementById('flashcard-view').style.display = currentWordsTab === 'flashcard' ? 'flex' : 'none'
+        if (currentWordsTab === 'collection') renderWordsList()
+        else initFlashcard()
+      })
+    })
+
+    function renderWordsView() {
+      const words = WordStore.getAll()
+      document.getElementById('words-total').textContent = `Total: ${words.length}`
+      document.getElementById('words-today').textContent = `Today: ${WordStore.todayCount()}`
+      if (currentWordsTab === 'collection') renderWordsList()
+      else initFlashcard()
+    }
+
+    function renderWordsList() {
+      const words = WordStore.getAll()
+      const searchVal = document.getElementById('words-search').value.toLowerCase().trim()
+      const filtered = searchVal ? words.filter(w => w.en.toLowerCase().includes(searchVal) || w.zh.includes(searchVal)) : words
+      const listEl = document.getElementById('words-list')
+      const emptyEl = document.getElementById('words-empty')
+
+      document.getElementById('words-total').textContent = `Total: ${words.length}`
+      document.getElementById('words-today').textContent = `Today: ${WordStore.todayCount()}`
+
+      if (!filtered.length) {
+        listEl.innerHTML = ''
+        emptyEl.style.display = 'flex'
+        listEl.style.display = 'none'
+        return
+      }
+      emptyEl.style.display = 'none'
+      listEl.style.display = ''
+
+      // Group by date
+      const groups = {}
+      const today = new Date().toISOString().slice(0, 10)
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+      filtered.slice().reverse().forEach(w => {
+        const d = w.addedAt?.slice(0, 10) || 'unknown'
+        const label = d === today ? 'Today 今天' : d === yesterday ? 'Yesterday 昨天' : d
+        if (!groups[label]) groups[label] = []
+        groups[label].push(w)
+      })
+
+      listEl.innerHTML = ''
+      Object.entries(groups).forEach(([label, items]) => {
+        const groupLabel = document.createElement('div')
+        groupLabel.className = 'words-group-label'
+        groupLabel.textContent = label
+        listEl.appendChild(groupLabel)
+        items.forEach(w => {
+          const card = document.createElement('div')
+          card.className = 'word-card'
+          card.innerHTML = `
+            <div class="word-card-info">
+              <div class="word-card-en">${w.en}</div>
+              <div class="word-card-zh">${w.zh}${w.phonetic ? ' <span class="word-card-phonetic">' + w.phonetic + '</span>' : ''}</div>
+            </div>
+            <div class="word-card-actions">
+              <span class="word-card-source ${w.source}">${w.source === 'camera' ? '📷' : '🖼️'}</span>
+              <button class="word-action-btn word-speak-btn">🔊</button>
+              <button class="word-action-btn word-mic-btn">🎤</button>
+              <button class="word-delete-btn">🗑️</button>
+            </div>
+          `
+          card.querySelector('.word-speak-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); speakBrowserFallback(w.en)
+          })
+          card.querySelector('.word-mic-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); showPronouncePanel(w.en, w.zh)
+          })
+          card.querySelector('.word-delete-btn').addEventListener('click', (e) => {
+            e.stopPropagation(); WordStore.remove(w.id); renderWordsList()
+          })
+          card.addEventListener('click', () => {
+            speakBrowserFallback(w.en)
+          })
+          listEl.appendChild(card)
+        })
+      })
+    }
+    document.getElementById('words-search').addEventListener('input', renderWordsList)
+
+    // ============================================================
+    // FLASHCARD
+    // ============================================================
+    let fcWords = [], fcIndex = 0, fcFlipped = false
+    function initFlashcard() {
+      fcWords = WordStore.getForFlashcard()
+      fcIndex = 0; fcFlipped = false
+      if (!fcWords.length) {
+        document.getElementById('flashcard-empty').style.display = ''
+        document.getElementById('fc-wrapper').style.display = 'none'
+        document.getElementById('fc-actions').style.display = 'none'
+        document.getElementById('fc-progress').textContent = ''
+        return
+      }
+      document.getElementById('flashcard-empty').style.display = 'none'
+      document.getElementById('fc-wrapper').style.display = ''
+      showFlashcard()
+    }
+    function showFlashcard() {
+      if (fcIndex >= fcWords.length) {
+        document.getElementById('fc-progress').textContent = '🎉 All done! Great job!'
+        document.getElementById('fc-wrapper').style.display = 'none'
+        document.getElementById('fc-actions').style.display = 'none'
+        return
+      }
+      const w = fcWords[fcIndex]
+      fcFlipped = false
+      document.getElementById('fc-inner').classList.remove('flipped')
+      document.getElementById('fc-front-zh').textContent = w.zh || '?'
+      document.getElementById('fc-back-en').textContent = w.en
+      document.getElementById('fc-back-phonetic').textContent = w.phonetic || ''
+      document.getElementById('fc-back-zh').textContent = w.zh || ''
+      document.getElementById('fc-progress').textContent = `${fcIndex + 1} / ${fcWords.length}`
+      document.getElementById('fc-actions').style.display = 'none'
+      document.getElementById('fc-wrapper').style.display = ''
+    }
+    document.getElementById('fc-wrapper').addEventListener('click', () => {
+      if (fcFlipped) return
+      fcFlipped = true
+      document.getElementById('fc-inner').classList.add('flipped')
+      document.getElementById('fc-actions').style.display = 'flex'
+      // TTS
+      if (fcWords[fcIndex]) speakBrowserFallback(fcWords[fcIndex].en)
+    })
+    document.getElementById('fc-fail').addEventListener('click', () => {
+      if (fcWords[fcIndex]) WordStore.updateScore(fcWords[fcIndex].id, -1)
+      fcIndex++; showFlashcard()
+    })
+    document.getElementById('fc-pass').addEventListener('click', () => {
+      if (fcWords[fcIndex]) WordStore.updateScore(fcWords[fcIndex].id, 1)
+      fcIndex++; showFlashcard()
+    })
+
+    // ============================================================
+    // PRONUNCIATION PANEL
+    // ============================================================
+    let ppTarget = '', ppRecognition = null, ppRecording = false
+    function showPronouncePanel(en, zh) {
+      ppTarget = en
+      document.getElementById('pp-word').textContent = en
+      document.getElementById('pp-prompt').textContent = `🎤 Say: "${en}"`
+      document.getElementById('pp-result').innerHTML = ''
+      document.getElementById('pronounce-panel').classList.add('active')
+      document.getElementById('pronounce-overlay').classList.add('active')
+      const micBtn = document.getElementById('pp-mic-btn')
+      micBtn.classList.remove('recording', 'disabled')
+    }
+    function hidePronouncePanel() {
+      document.getElementById('pronounce-panel').classList.remove('active')
+      document.getElementById('pronounce-overlay').classList.remove('active')
+      if (ppRecognition && ppRecording) { try { ppRecognition.stop() } catch {} ppRecording = false }
+    }
+    document.getElementById('pp-close').addEventListener('click', hidePronouncePanel)
+    document.getElementById('pronounce-overlay').addEventListener('click', hidePronouncePanel)
+
+    function levenshtein(a, b) {
+      const m = a.length, n = b.length
+      const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
+      for (let i = 0; i <= m; i++) dp[i][0] = i
+      for (let j = 0; j <= n; j++) dp[0][j] = j
+      for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+          dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+      return dp[m][n]
+    }
+    function scorePronunciation(spoken, expected) {
+      const s = spoken.toLowerCase().trim()
+      const e = expected.toLowerCase().trim()
+      if (s === e) return { score: 100, grade: 'perfect' }
+      if (s.includes(e) || e.includes(s)) return { score: 80, grade: 'close' }
+      const dist = levenshtein(s, e)
+      const maxLen = Math.max(s.length, e.length)
+      const similarity = Math.round((1 - dist / maxLen) * 100)
+      if (similarity >= 70) return { score: similarity, grade: 'close' }
+      return { score: similarity, grade: 'retry' }
+    }
+
+    document.getElementById('pp-mic-btn').addEventListener('click', () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SR) { document.getElementById('pp-result').innerHTML = '<div class="pp-grade retry">Voice not supported in this browser</div>'; return }
+      const micBtn = document.getElementById('pp-mic-btn')
+      if (ppRecording) {
+        if (ppRecognition) ppRecognition.stop()
+        ppRecording = false; micBtn.classList.remove('recording')
+        return
+      }
+      ppRecognition = new SR()
+      ppRecognition.lang = 'en-US'; ppRecognition.interimResults = false; ppRecognition.continuous = false
+      document.getElementById('pp-result').innerHTML = ''
+      document.getElementById('pp-prompt').textContent = '🎙️ Listening...'
+      micBtn.classList.add('recording')
+      ppRecording = true
+
+      ppRecognition.onresult = (ev) => {
+        const spoken = ev.results[0][0].transcript
+        const result = scorePronunciation(spoken, ppTarget)
+        const gradeMap = { perfect: '✅ Perfect!', close: '🔶 Close!', retry: '❌ Try again' }
+        document.getElementById('pp-result').innerHTML = `
+          <div class="pp-grade ${result.grade}">${gradeMap[result.grade]} ${result.score}%</div>
+          <div class="pp-spoken">You said: "${spoken}"</div>
+          <div class="pp-actions">
+            <button class="pp-action-btn again" onclick="startPPAgain()">🔄 Again</button>
+          </div>
+        `
+        document.getElementById('pp-prompt').textContent = `🎤 Say: "${ppTarget}"`
+      }
+      ppRecognition.onend = () => { ppRecording = false; micBtn.classList.remove('recording') }
+      ppRecognition.onerror = (e) => {
+        ppRecording = false; micBtn.classList.remove('recording')
+        if (e.error !== 'no-speech') document.getElementById('pp-result').innerHTML = '<div class="pp-grade retry">Could not hear. Try again!</div>'
+        document.getElementById('pp-prompt').textContent = `🎤 Say: "${ppTarget}"`
+      }
+      try { ppRecognition.start() } catch(e) { ppRecording = false; micBtn.classList.remove('recording') }
+    })
+
+    function startPPAgain() {
+      document.getElementById('pp-result').innerHTML = ''
+      document.getElementById('pp-mic-btn').click()
+    }
+
+    // ============================================================
+    // CHAT config
+    // ============================================================
+    const MODE_CONFIG = {
+      standard: { emoji: '🦞', label: 'Standard', persona: `You are Mr. Lobster, a charismatic and witty English conversation partner. Your personality: warm but playfully sarcastic, like a fun friend who happens to be great at English. You love wordplay, pop culture references, and clever analogies.
+
+Key behaviors:
+- React to what the user says with genuine interest — comment on their ideas, share opinions, ask follow-ups
+- Use natural spoken English (contractions, casual phrases, filler words like "Oh!", "Hmm", "Well...")
+- Weave in useful vocabulary naturally — when you use a slightly advanced word, briefly explain it in context
+- If the user seems stuck, offer sentence starters or rephrase your question simpler
+- Occasionally teach an idiom or expression that fits the conversation naturally
+- Be encouraging but real — don't over-praise, treat them like a friend learning together` },
+
+      baby: { emoji: '👶', label: 'Baby', persona: `You are Baby Lobster, the most patient and encouraging English tutor for absolute beginners. Think of yourself as a kind kindergarten teacher.
+
+Key behaviors:
+- Use simple A1-A2 vocabulary (common words only). Short sentences (5-8 words)
+- Speak slowly and clearly — avoid idioms, slang, or complex grammar
+- When the user tries, celebrate warmly: "Great job!", "You got it!", "Wow, perfect!"
+- If they struggle, gently model the answer: "Try this: I want coffee, please"
+- Ask simple yes/no or choice questions to build confidence: "Do you like coffee or tea?"
+- Introduce ONE new word per exchange and repeat it in different contexts
+- Never overwhelm — one correction at a time, always with the correct example` },
+
+      devil: { emoji: '😈', label: 'Devil', persona: `You are Drill Sergeant Lobster, an intense but ultimately caring English coach. Think Gordon Ramsay meets language teacher — tough on mistakes but brilliant at teaching.
+
+Key behaviors:
+- Catch EVERY grammar/vocabulary mistake — be thorough and precise
+- Be dramatically strict: "STOP. Read that again. 'I goed'? Did you seriously just say 'goed'?"
+- After the tough correction, ALWAYS explain WHY and give a clear rule
+- Challenge the user: "Now use that word in a NEW sentence. Go!"
+- Track their progress within the conversation — "Better! But you made that same 'the' mistake again"
+- Use military/coach metaphors: "Give me 3 sentences using past tense. NOW!"
+- Despite the tough act, end tough corrections with genuine encouragement: "That was rough, but you're getting stronger"` },
+
+      riddler: { emoji: '🧩', label: 'Riddler', persona: `You are Riddler Lobster, a mysterious and playful English tutor who turns every conversation into an adventure of words.
+
+Key behaviors:
+- Teach vocabulary through riddles: "I have hands but cannot clap, a face but cannot smile. What am I?" (clock)
+- After they guess (right or wrong), explain the vocabulary: "Yes! 'Hands' on a clock — same word, different meaning. That's called a homonym"
+- Play word association games: "Quick! Tell me 3 words related to 'ocean'"
+- Create mini stories with blanks: "The detective ___ (past tense of 'find') the clue under the ___"
+- Challenge with tongue twisters, rhymes, and word chains
+- Speak in an intriguing, mysterious tone — like a wise puzzle master
+- Every exchange should teach something while feeling like a game` }
+    }
+    const SCENARIO_CONFIG = {
+      free: { emoji: '💬', label: 'Free Talk', prompt: 'Have a free-form English conversation on any topic the user chooses.' },
+      restaurant: { emoji: '🍽️', label: 'Restaurant', prompt: 'Role-play a restaurant scenario. You are the waiter/server. Help the user practice ordering food, asking about the menu, making special requests, and paying the bill.' },
+      airport: { emoji: '✈️', label: 'Airport', prompt: 'Role-play an airport scenario. You are the check-in agent, security officer, or gate agent. Help the user practice checking in, going through security, asking about flights, and boarding.' },
+      interview: { emoji: '💼', label: 'Interview', prompt: 'Role-play a job interview scenario. You are the interviewer. Ask common interview questions, help the user practice professional English, and give tips on how to answer better.' },
+      travel: { emoji: '🗺️', label: 'Travel', prompt: 'Role-play a travel scenario. You are a local guide or helpful stranger. Help the user practice asking for directions, recommendations, transportation, and sightseeing.' },
+      doctor: { emoji: '🏥', label: 'Doctor', prompt: 'Role-play a doctor visit scenario. You are the doctor or receptionist. Help the user practice describing symptoms, understanding medical advice, making appointments, and asking about medication.' },
+      shopping: { emoji: '🛍️', label: 'Shopping', prompt: 'Role-play a shopping scenario. You are the shop assistant. Help the user practice asking about products, sizes, prices, returns, and making purchases.' },
+      hotel: { emoji: '🏨', label: 'Hotel', prompt: 'Role-play a hotel scenario. You are the front desk receptionist. Help the user practice checking in/out, asking about amenities, requesting room service, and resolving issues.' }
+    }
+    let currentMode = 'baby', currentScenario = 'free', chatHistory = [], chatSending = false
+    const MAX_HISTORY = 40
+
+    const modeSelectorEl = document.getElementById('mode-selector')
+    Object.entries(MODE_CONFIG).forEach(([key, cfg]) => {
+      const btn = document.createElement('button'); btn.className = 'mode-btn' + (key === currentMode ? ' active' : '')
+      btn.dataset.mode = key; btn.innerHTML = `<span class="mode-emoji">${cfg.emoji}</span>${cfg.label}`
+      btn.addEventListener('click', () => selectMode(key)); modeSelectorEl.appendChild(btn)
+    })
+    function selectMode(mode) { if (mode === currentMode) return; currentMode = mode; document.querySelectorAll('.mode-btn').forEach(el => el.classList.toggle('active', el.dataset.mode === mode)); newChat() }
+
+    const scenarioChipsEl = document.getElementById('scenario-chips')
+    Object.entries(SCENARIO_CONFIG).forEach(([key, cfg]) => {
+      const chip = document.createElement('button'); chip.className = 'scenario-chip' + (key === currentScenario ? ' active' : '')
+      chip.dataset.scenario = key; chip.textContent = `${cfg.emoji} ${cfg.label}`
+      chip.addEventListener('click', () => selectScenario(key)); scenarioChipsEl.appendChild(chip)
+    })
+    function selectScenario(scenario) {
+      if (scenario === currentScenario) return; currentScenario = scenario
+      document.getElementById('scenario-label').textContent = `${SCENARIO_CONFIG[scenario].emoji} ${SCENARIO_CONFIG[scenario].label}`
+      document.querySelectorAll('.scenario-chip').forEach(el => el.classList.toggle('active', el.dataset.scenario === scenario))
+      toggleScenarioPanel(); newChat()
+    }
+    function toggleScenarioPanel() { document.getElementById('scenario-panel').classList.toggle('open'); document.getElementById('scenario-toggle').classList.toggle('open') }
+    document.getElementById('scenario-toggle').addEventListener('click', toggleScenarioPanel)
+
+    function buildSystemPrompt() {
+      const mode = MODE_CONFIG[currentMode], scenario = SCENARIO_CONFIG[currentScenario]
+      return `${mode.persona}
+
+CURRENT SCENARIO: ${scenario.prompt}
+
+CONVERSATION RULES (follow strictly):
+
+1. LENGTH: Keep responses to 2-4 sentences. This is mobile chat — be concise and natural. Never write paragraphs.
+
+2. LANGUAGE ENFORCEMENT: If the user writes in Chinese or any non-English language, respond ONLY with a gentle redirect and a helpful hint:
+   "Let's practice in English! You can say: [provide the English translation of what they tried to say]"
+   Do NOT answer their question in Chinese. Always model the English version for them.
+
+3. GRAMMAR CORRECTION FORMAT: When the user makes a clear grammar, spelling, or word-choice error:
+   - Output a correction line in this EXACT format (must be on its own line):
+     [CORRECTION] "their exact wrong phrase" → "the corrected version" | One-sentence explanation of the rule
+   - Then continue with your normal conversational response on a new line
+   - Correct maximum 2 mistakes per message — focus on the most important ones
+   - Do NOT correct informal/casual usage that native speakers commonly use (e.g., "gonna", "wanna", "kinda" are fine)
+   - Do NOT correct minor style preferences — only clear errors
+
+4. TEACHING STYLE: Think like a native English-speaking friend, not a textbook:
+   - Use natural contractions (I'm, don't, can't, it's)
+   - Include conversational fillers where natural (Well, Actually, Oh, Hmm)
+   - Ask follow-up questions to keep the conversation flowing
+   - When you use a useful expression or idiom, briefly note it: "...that's a common expression meaning..."
+   - Adapt vocabulary complexity to the user's apparent level
+
+5. CHARACTER: Stay in character as ${mode.emoji} ${mode.label} personality throughout.
+
+6. ENGLISH ONLY: Always respond in English. Never use Chinese characters in your responses.`
+    }
+
+    const messagesEl = document.getElementById('chat-messages')
+    function scrollToBottom() { requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight }) }
+    function addMessageBubble(type, content, speakable) {
+      const row = document.createElement('div'); row.className = `msg-row msg-${type}`
+      if (type === 'ai' || type === 'correction') { const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = type === 'correction' ? '📝' : MODE_CONFIG[currentMode].emoji; row.appendChild(av) }
+      const bubble = document.createElement('div'); bubble.className = 'msg-bubble'
+      if (type === 'correction') bubble.innerHTML = content; else bubble.textContent = content; row.appendChild(bubble)
+      if (type === 'ai' && speakable) { const sb = document.createElement('button'); sb.className = 'msg-speak-btn'; sb.textContent = '🔊'; sb.addEventListener('click', () => speak(content)); row.appendChild(sb) }
+      messagesEl.appendChild(row); scrollToBottom(); return bubble
+    }
+    function addTypingIndicator() {
+      const row = document.createElement('div'); row.className = 'msg-row msg-ai'; row.id = 'typing-row'
+      const av = document.createElement('div'); av.className = 'msg-avatar'; av.textContent = MODE_CONFIG[currentMode].emoji; row.appendChild(av)
+      const ind = document.createElement('div'); ind.className = 'msg-bubble typing-indicator'; ind.innerHTML = '<span></span><span></span><span></span>'; row.appendChild(ind)
+      messagesEl.appendChild(row); scrollToBottom()
+    }
+    function removeTypingIndicator() { const el = document.getElementById('typing-row'); if (el) el.remove() }
+    function parseCorrectionResponse(text) {
+      const corrections = [], messageLines = []
+      for (const line of text.split('\n')) { const m = line.match(/\[CORRECTION\]\s*"(.+?)"\s*→\s*"(.+?)"\s*\|\s*(.+)/); if (m) corrections.push({ wrong: m[1], correct: m[2], explanation: m[3].trim() }); else if (line.trim()) messageLines.push(line) }
+      return { corrections, message: messageLines.join('\n').trim() }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input'), text = input.value.trim()
+      if (!text || chatSending) return; chatSending = true; input.value = ''; autoResizeInput(); updateSendButton()
+      addMessageBubble('user', text); chatHistory.push({ role: 'user', text })
+      if (chatHistory.length > MAX_HISTORY) chatHistory = chatHistory.slice(chatHistory.length - MAX_HISTORY)
+      addTypingIndicator()
+      const contents = chatHistory.map(h => ({ role: h.role === 'user' ? 'user' : 'model', parts: [{ text: h.text }] }))
+      try {
+        const resp = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system_instruction: { parts: [{ text: buildSystemPrompt() }] }, contents, generationConfig: { temperature: 0.8, maxOutputTokens: 300 }, _model: 'gemini-2.5-flash' })
+        })
+        removeTypingIndicator()
+        if (!resp.ok) { addMessageBubble('ai', 'Oops, something went wrong. Try again!', false); chatSending = false; return }
+        const data = await resp.json(), parts = data.candidates?.[0]?.content?.parts
+        if (!parts) { addMessageBubble('ai', 'No response — try again!', false); chatSending = false; return }
+        let aiText = ''; for (let i = parts.length - 1; i >= 0; i--) { if (parts[i].text) { aiText = parts[i].text.trim(); break } }
+        if (!aiText) { addMessageBubble('ai', 'No response — try again!', false); chatSending = false; return }
+        const { corrections, message } = parseCorrectionResponse(aiText)
+        for (const c of corrections) addMessageBubble('correction', `<span class="wrong">${c.wrong}</span> → <span class="correct">${c.correct}</span><span class="explanation">${c.explanation}</span>`, false)
+        if (message) { addMessageBubble('ai', message, true); speak(message) }
+        chatHistory.push({ role: 'model', text: aiText })
+      } catch (e) { removeTypingIndicator(); console.error('Chat error:', e); addMessageBubble('ai', 'Network error. Check your connection and try again.', false) }
+      chatSending = false
+    }
+
+    async function sendGreeting() {
+      if (chatHistory.length > 0) return; addTypingIndicator()
+      const scenario = SCENARIO_CONFIG[currentScenario]
+      const gp = currentScenario === 'free' ? 'Start the conversation with a brief, friendly greeting. Introduce yourself in 1-2 sentences and ask the user what they would like to talk about.' : `Start the role-play scenario. Give a brief, in-character greeting for the "${scenario.label}" scenario. Set the scene in 1-2 sentences and invite the user to respond.`
+      try {
+        const resp = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ system_instruction: { parts: [{ text: buildSystemPrompt() }] }, contents: [{ role: 'user', parts: [{ text: gp }] }], generationConfig: { temperature: 0.9, maxOutputTokens: 200 }, _model: 'gemini-2.5-flash' })
+        })
+        removeTypingIndicator()
+        if (!resp.ok) { addMessageBubble('ai', 'Hey there! Ready to practice English? 🦞', true); chatHistory.push({ role: 'model', text: 'Hey there! Ready to practice English? 🦞' }); return }
+        const data = await resp.json(), parts = data.candidates?.[0]?.content?.parts
+        let greeting = ''; if (parts) { for (let i = parts.length - 1; i >= 0; i--) { if (parts[i].text) { greeting = parts[i].text.trim(); break } } }
+        if (!greeting) greeting = 'Hey there! Ready to practice English? 🦞'
+        addMessageBubble('ai', greeting, true); speak(greeting); chatHistory.push({ role: 'model', text: greeting })
+      } catch (e) { removeTypingIndicator(); const fb = 'Hey there! Ready to practice English? 🦞'; addMessageBubble('ai', fb, true); chatHistory.push({ role: 'model', text: fb }) }
+    }
+    function newChat() { chatHistory = []; messagesEl.innerHTML = ''; if (currentTab === 'chat') sendGreeting() }
+
+    const chatInput = document.getElementById('chat-input'), sendBtn = document.getElementById('btn-send')
+    function autoResizeInput() { chatInput.style.height = 'auto'; chatInput.style.height = Math.min(chatInput.scrollHeight, 80) + 'px' }
+    function updateSendButton() { sendBtn.classList.toggle('has-text', chatInput.value.trim().length > 0) }
+    chatInput.addEventListener('input', () => { autoResizeInput(); updateSendButton() })
+    chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } })
+
+    let recognition = null, isRecording = false; const micBtn = document.getElementById('btn-mic')
+    function initSpeechRecognition() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+      if (!SR) { micBtn.style.display = 'none'; document.getElementById('stt-banner').style.display = 'block'; return }
+      recognition = new SR(); recognition.lang = 'en-US'; recognition.interimResults = true; recognition.continuous = false
+      recognition.onresult = (ev) => { let t = ''; for (let i = ev.resultIndex; i < ev.results.length; i++) t += ev.results[i][0].transcript; chatInput.value = t; autoResizeInput(); updateSendButton() }
+      recognition.onend = () => { isRecording = false; micBtn.classList.remove('recording') }
+      recognition.onerror = () => { isRecording = false; micBtn.classList.remove('recording') }
+    }
+    function toggleMic() {
+      if (!recognition) return
+      if (isRecording) { recognition.stop(); isRecording = false; micBtn.classList.remove('recording') }
+      else { chatInput.value = ''; autoResizeInput(); try { recognition.start(); isRecording = true; micBtn.classList.add('recording') } catch(e) {} }
+    }
+    initSpeechRecognition()
+    document.getElementById('btn-new-chat').addEventListener('click', newChat)
+    micBtn.addEventListener('click', toggleMic)
+    sendBtn.addEventListener('click', sendMessage)
+
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', function() { if (currentTab === 'chat') scrollToBottom() })
   </script>
 </body>
 </html>
