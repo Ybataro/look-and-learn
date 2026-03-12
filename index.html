@@ -1611,7 +1611,7 @@ Scene-specific items to include: ${cat.sampleItems.join(', ')}`
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseModalities: ['TEXT', 'IMAGE'], temperature: 1 },
-          _model: 'gemini-2.0-flash-exp'
+          _model: 'gemini-2.5-flash-image'
         })
       })
       if (!resp.ok) throw new Error('Image generation failed: ' + resp.status)
