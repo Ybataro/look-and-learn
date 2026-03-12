@@ -522,19 +522,13 @@
       stroke: #e94560; stroke-width: 1.5; stroke-dasharray: 4 3;
       opacity: 0.6;
     }
-    /* Narration highlight — scale up + red text */
+    /* Narration highlight — just color change, no animation */
     .scene-label-v2.narrating {
-      transform: scale(1.15);
       z-index: 100;
-      animation: narratePulse 0.8s ease-in-out infinite;
     }
     .scene-label-v2.narrating .slv2-en {
       color: #e94560;
-      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 8px rgba(233,69,96,0.5);
-    }
-    @keyframes narratePulse {
-      0%, 100% { transform: scale(1.15); }
-      50% { transform: scale(1.22); }
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff;
     }
     .scene-label-v2.active .slv2-en {
       color: #e94560;
@@ -1769,19 +1763,19 @@ Return JSON only (no markdown): {"name_zh":"繁體中文","items":["item1","item
 
     // ── Gemini image generation (Step 1) ──
     async function generateSceneImage(cat) {
-      const prompt = `Create a colorful cartoon illustration of a ${cat.name} scene for children's English vocabulary learning.
+      const prompt = `Create a warm, immersive cartoon illustration of a real ${cat.name} scene for children's English vocabulary learning.
 
 Requirements:
-- Warm, bright colors with flat cartoon style
-- Show 10-12 common items clearly separated (not overlapping)
-- Each item should be distinct and easy to identify
-- Include a cute child character interacting with the scene
-- Clean white/light background areas between items
-- Items should be labeled-friendly (clear outlines, good spacing)
-- Style: similar to children's educational picture books
-- No text or labels in the image
+- Draw a FULL BACKGROUND SCENE (like an actual ${cat.name}), NOT items on white background
+- Warm anime/cartoon style with rich colors, like a cozy illustrated storybook
+- Include a cute child or parent character naturally interacting in the scene
+- Show 10-12 common items placed naturally in the scene (as they would appear in real life)
+- Items should be clearly visible and identifiable within the scene
+- Perspective: eye-level view showing the full environment
+- Lighting: warm, inviting atmosphere
+- No text, labels, or words in the image
 
-Scene-specific items to include: ${cat.sampleItems.join(', ')}`
+Scene items to include naturally: ${cat.sampleItems.join(', ')}`
 
       const resp = await fetch(API_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
