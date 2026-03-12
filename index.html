@@ -434,6 +434,12 @@
     #scene-image-container {
       flex: 1; display: flex; align-items: center; justify-content: center;
       position: relative; overflow: hidden;
+      touch-action: none;
+    }
+    #scene-zoom-wrapper {
+      position: relative; display: inline-block;
+      transform-origin: 0 0;
+      transition: transform 0.05s linear;
     }
     /* Scene help tip */
     #scene-help-btn {
@@ -1041,14 +1047,17 @@
       <button id="scene-regen-btn" title="Regenerate">🔄</button>
     </div>
     <div id="scene-image-container">
-      <img id="scene-image" alt="Scene">
-      <div id="scene-labels"></div>
+      <div id="scene-zoom-wrapper">
+        <img id="scene-image" alt="Scene">
+        <div id="scene-labels"></div>
+      </div>
       <button id="scene-help-btn">?</button>
       <div id="scene-help-panel" class="hidden">
         <div><span class="help-icon">👆</span>點擊<b>英文單字</b>可聽發音</div>
         <div><span class="help-icon">📌</span>點<b>記住</b>收藏到單字本</div>
         <div><span class="help-icon">🔊</span>自動朗讀逐一唸出單字</div>
         <div><span class="help-icon">🔄</span>右上角可重新生成場景</div>
+        <div><span class="help-icon">🤏</span>雙指縮放可放大圖片</div>
       </div>
     </div>
     <div id="scene-bottom-bar">
@@ -1218,18 +1227,22 @@
     var ttsAudio = null, ttsAbort = null
     function speakBrowserFallback(text) {
       if (!hasSpeechSynthesis) return
-      speechSynthesis.cancel()
+      try { speechSynthesis.cancel() } catch {}
+      // Chrome bug: cancel() can break synthesis. Resume + delay fixes it.
+      try { speechSynthesis.resume() } catch {}
       setTimeout(() => {
+        try { speechSynthesis.resume() } catch {}
         var u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1
-        if (bestVoice) u.voice = bestVoice; speechSynthesis.speak(u)
-      }, 50)
+        if (bestVoice) u.voice = bestVoice
+        speechSynthesis.speak(u)
+      }, 100)
     }
 
     function speak(text) {
       // Stop any playing audio & abort pending TTS request
       if (ttsAbort) { ttsAbort.abort(); ttsAbort = null }
       if (ttsAudio) { ttsAudio.pause(); ttsAudio = null }
-      if (hasSpeechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel()
+      if (hasSpeechSynthesis) { try { speechSynthesis.cancel(); speechSynthesis.resume() } catch {} }
 
       if (!text || text.length < 3) return
       // Camera mode: use browser TTS (fast, no API call needed)
@@ -2050,7 +2063,9 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
       itemsScroll.innerHTML = ''
 
       const doRender = () => {
-        const container = document.getElementById('scene-image-container')
+        // Reset zoom before rendering labels
+        resetSceneZoom()
+        const container = document.getElementById('scene-zoom-wrapper')
         const cRect = container.getBoundingClientRect()
         const rect = imgEl.getBoundingClientRect()
         const positions = layoutLabels(items, cRect.width, cRect.height, rect, cRect)
@@ -2170,15 +2185,20 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
     }
     function stopAutoNarration() {
       narrationAbort = true
-      if (hasSpeechSynthesis && speechSynthesis.speaking) speechSynthesis.cancel()
+      if (hasSpeechSynthesis) {
+        try { speechSynthesis.cancel() } catch {}
+        try { speechSynthesis.resume() } catch {}
+      }
     }
     function speakAndWait(text) {
       return new Promise(resolve => {
         if (!hasSpeechSynthesis) { setTimeout(resolve, 500); return }
-        speechSynthesis.cancel()
+        try { speechSynthesis.cancel() } catch {}
+        try { speechSynthesis.resume() } catch {}
         let resolved = false
         const done = () => { if (!resolved) { resolved = true; resolve() } }
         setTimeout(() => {
+          try { speechSynthesis.resume() } catch {}
           const utt = new SpeechSynthesisUtterance(text)
           utt.lang = 'en-US'; utt.rate = 0.85; utt.pitch = 1
           if (bestVoice) utt.voice = bestVoice
@@ -2186,10 +2206,61 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
           utt.onerror = done
           speechSynthesis.speak(utt)
           setTimeout(done, 4000)
-        }, 50)
+        }, 100)
       })
     }
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+    // ── Pinch-to-zoom for scene image ──
+    let sceneZoom = 1, scenePanX = 0, scenePanY = 0
+    let pinchStartDist = 0, pinchStartZoom = 1
+    let panStartX = 0, panStartY = 0, panStartPanX = 0, panStartPanY = 0
+    const zoomWrapper = document.getElementById('scene-zoom-wrapper')
+    const zoomContainer = document.getElementById('scene-image-container')
+
+    function applySceneZoom() {
+      zoomWrapper.style.transform = `translate(${scenePanX}px, ${scenePanY}px) scale(${sceneZoom})`
+    }
+    function resetSceneZoom() {
+      sceneZoom = 1; scenePanX = 0; scenePanY = 0
+      zoomWrapper.style.transform = ''
+    }
+
+    zoomContainer.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        pinchStartDist = Math.hypot(dx, dy)
+        pinchStartZoom = sceneZoom
+      } else if (e.touches.length === 1 && sceneZoom > 1) {
+        panStartX = e.touches[0].clientX
+        panStartY = e.touches[0].clientY
+        panStartPanX = scenePanX
+        panStartPanY = scenePanY
+      }
+    }, { passive: false })
+
+    zoomContainer.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const dist = Math.hypot(dx, dy)
+        sceneZoom = Math.max(1, Math.min(4, pinchStartZoom * (dist / pinchStartDist)))
+        if (sceneZoom <= 1.05) { sceneZoom = 1; scenePanX = 0; scenePanY = 0 }
+        applySceneZoom()
+      } else if (e.touches.length === 1 && sceneZoom > 1) {
+        e.preventDefault()
+        scenePanX = panStartPanX + (e.touches[0].clientX - panStartX)
+        scenePanY = panStartPanY + (e.touches[0].clientY - panStartY)
+        applySceneZoom()
+      }
+    }, { passive: false })
+
+    zoomContainer.addEventListener('touchend', (e) => {
+      if (e.touches.length === 0 && sceneZoom <= 1.05) resetSceneZoom()
+    })
 
     // ── Scene help tip (always visible, toggle with ? button) ──
     const sceneHelpBtn = document.getElementById('scene-help-btn')
@@ -2204,6 +2275,7 @@ Focus on distinct, learnable nouns. Be specific (e.g. "frying pan" not "object")
     // ── Scene back + regenerate ──
     document.getElementById('scene-back-btn').addEventListener('click', () => {
       stopAutoNarration()
+      resetSceneZoom()
       document.getElementById('scene-viewer').classList.remove('active')
     })
     document.getElementById('scene-regen-btn').addEventListener('click', () => {
